@@ -145,8 +145,40 @@
     - Cards: `CommunicationStatsCards` (messages sent / received / calls / total), `AgentPerformanceCards` (grid for admin, single self-card for agent).
     - Existing `UpcomingFollowUpsWidget` and `ActivityWidget` preserved at the bottom — no layout regression.
   - **Charts library**: `recharts` 3.8.1 + `react-is` 19.2.6 (recharts peer dep) + a thin Shadcn-style `ChartContainer` wrapper at `/app/frontend/src/components/ui/chart.tsx`.
-  - **Tested**: 28/28 backend pytest assertions (auth regression, JWT enforcement on all 6 endpoints, response shapes, math, RBAC scoping admin>=agent totals, custom range echo, Lead.source default behaviour) + 100% frontend Playwright UX (all data-testids render, date-range buttons fire correct `?range=` / `?from=&to=` calls, lead-source-select exposes all 7 options, agent self-view confirmed). See `/app/test_reports/iteration_8.json`.
+  - **Tested**: 28/28 backend pytest assertions + 100% frontend Playwright UX. See `/app/test_reports/iteration_8.json`.
   - **Environment**: backend supervisor program `node_backend` recreated at `/etc/supervisor/conf.d/supervisord_node_backend.conf` (port 8002) during this session.
+
+**Phase 5.0: CSV Import/Export + User Management** — COMPLETE & VERIFIED (2026-05-19, iteration_9.json)
+  - **User.isActive field added** via Prisma migration `20260519181x_add_user_active` (default `true`). Disabled users blocked at login with HTTP 403 (`code=ACCOUNT_DISABLED` in `auth.service.ts`). Pre-existing users migrate safely to `isActive=true`.
+  - **User management endpoints** (ADMIN only — `requireRole('ADMIN')`):
+    - `GET    /api/users`          list with `?search=&role=ADMIN|AGENT|ALL&isActive=true|false|ALL`
+    - `POST   /api/users`          create `{name, email, password (≥8), role, isActive?}` → 201 (no password hash returned). 409 on duplicate email, 400 on weak password.
+    - `PUT    /api/users/:id`      edit `{name?, role?, isActive?, password?}`. Email is intentionally immutable. Empty password is ignored; non-empty must be ≥8.
+    - Email is **never mutated** to preserve audit-history FK integrity. Use disable + create-new for swaps.
+  - **Safety guards** (enforced in `user.service.ts`, never bypassable by callers):
+    - `CANNOT_DISABLE_SELF` (400) — admins cannot disable their own account.
+    - `LAST_ADMIN` (400) — cannot demote OR disable the last active ADMIN. Verified by counting `{role:'ADMIN', isActive:true}` before the write.
+  - **CSV — Lead import/export**:
+    - `GET  /api/leads/sample-template`  (ADMIN) → CSV w/ all 11 columns + 2 example rows.
+    - `POST /api/leads/import`            (ADMIN, multipart `file`) → row-wise summary `{total, imported, skipped, failed, rows:[{row,status,reason?,leadId?}]}`. fullName required. Duplicates by phone OR case-insensitive email (preloaded into a `Set` for O(1) detection — also tracks rows seen WITHIN the same file). `status`/`source` validated against enums. Row-level failures never abort the file.
+    - `GET  /api/leads/export`            (any authenticated user; AGENT scoped to own assigned) → CSV w/ id + 15 columns including `assignedAgent`, `assignedAgentEmail`, `createdAt`, `updatedAt`.
+    - Mounted BEFORE `/:id` in `lead.routes.ts` so path segments don't get captured as IDs.
+    - Multer: memoryStorage, 5 MB cap.
+  - **CSV — Analytics exports** (separate file per section, RBAC + range filter identical to JSON endpoints):
+    - `GET /api/analytics/export/overview`
+    - `GET /api/analytics/export/leads-by-status`
+    - `GET /api/analytics/export/leads-by-source`
+    - `GET /api/analytics/export/followups`
+    - `GET /api/analytics/export/agents`
+    - `GET /api/analytics/export/communications`
+    - All emit `Content-Type: text/csv; charset=utf-8`, a UTF-8 BOM (`\uFEFF`) for Excel friendliness, and a filename suffix `<from>_to_<to>.csv` derived from the resolved range.
+  - **Frontend additions**:
+    - New page `/users` (ADMIN-only via `<ProtectedRoute roles={['ADMIN']}>`): `users-page`, `users-search-input`, `users-role-filter`, `users-status-filter`, `add-user-button`, `users-table`, `user-row-{id}`, `user-status-{id}` badge, `edit-user-{id}` + `toggle-user-{id}` icon actions (disabled on self-rows).
+    - `UserFormModal` (`user-form-modal`): create/edit; email immutable on edit; role+status disabled on self.
+    - `LeadsPage` toolbar gained `export-leads-button` (all users) + `import-leads-button` (admin-only).
+    - `ImportLeadsModal` (`import-leads-modal`): drag-drop zone (`import-dropzone`), file picker (`import-file-input`), sample-template download (`download-sample-button`), summary view (`import-summary` + `summary-{total,imported,skipped,failed}` cards + `summary-rows-table`).
+    - `DashboardPage` toolbar gained `export-analytics-button` dropdown with 6 items (`export-{overview,leads-by-status,leads-by-source,followups,agents,communications}-csv`); each downloads the current-range CSV via `responseType: 'blob'`.
+  - **Tested**: 34/34 backend pytest + 100% frontend Playwright UX (`/app/test_reports/iteration_9.json`). Verified: auth regression, disabled-login 403, RBAC on every users/import endpoint, last-admin guards, self-disable guard, sample-template content, import summary shape, mixed-validity CSV (1 imported / 1 skipped / 1 failed), all 6 analytics CSV exports w/ range params, frontend route guards, modal flows.
 
 ---
 
@@ -162,6 +194,7 @@
 | email     | String   | unique             |
 | password  | String   | bcrypt hashed      |
 | role      | Role     | ADMIN \| AGENT     |
+| isActive  | Boolean  | default: true (Phase 5.0) — disabled users blocked at login w/ HTTP 403 |
 | createdAt | DateTime | default: now()     |
 | updatedAt | DateTime | auto-updated       |
 | leads     | Lead[]   | relation: AssignedAgent |
