@@ -2,6 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { authRouter } from './routes/auth.routes';
+import { leadRouter } from './routes/lead.routes';
+import { usersRouter } from './routes/users.routes';
 import { prisma } from './lib/prisma';
 import { seedAdmin } from './scripts/seed';
 
@@ -38,6 +40,8 @@ app.get('/api/health', (_req, res) => {
 
 // Routes
 app.use('/api/auth', authRouter);
+app.use('/api/leads', leadRouter);
+app.use('/api/users', usersRouter);
 
 // 404 handler
 app.use((_req, res) => {

@@ -1,0 +1,95 @@
+import { Request, Response } from 'express';
+import * as leadService from '../services/lead.service';
+
+export async function listLeads(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await leadService.getLeads({
+      page: req.query.page ? Math.max(1, Number(req.query.page)) : 1,
+      limit: req.query.limit ? Math.min(100, Math.max(1, Number(req.query.limit))) : 20,
+      search: req.query.search as string | undefined,
+      status: req.query.status as string | undefined,
+      propertyType: req.query.propertyType as string | undefined,
+      bhk: req.query.bhk as string | undefined,
+      assignedAgentId: req.query.assignedAgentId as string | undefined,
+      sortBy: req.query.sortBy as string | undefined,
+      sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
+      userId: req.user!.id,
+      userRole: req.user!.role,
+    });
+    res.json(result);
+  } catch (e) {
+    console.error('listLeads:', e);
+    res.status(500).json({ error: 'Failed to fetch leads' });
+  }
+}
+
+export async function getOneLead(req: Request, res: Response): Promise<void> {
+  try {
+    const lead = await leadService.getLeadById(req.params.id);
+    if (!lead) {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+    res.json(lead);
+  } catch (e) {
+    console.error('getOneLead:', e);
+    res.status(500).json({ error: 'Failed to fetch lead' });
+  }
+}
+
+export async function addLead(req: Request, res: Response): Promise<void> {
+  const { fullName } = req.body;
+  if (!fullName?.trim()) {
+    res.status(400).json({ error: 'Full name is required' });
+    return;
+  }
+  try {
+    const lead = await leadService.createLead(req.body);
+    res.status(201).json(lead);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Failed to create lead';
+    res.status(400).json({ error: msg });
+  }
+}
+
+export async function editLead(req: Request, res: Response): Promise<void> {
+  try {
+    const lead = await leadService.updateLead(req.params.id, req.body);
+    res.json(lead);
+  } catch (e: any) {
+    if (e.code === 'P2025') {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+    res.status(400).json({ error: e.message || 'Failed to update lead' });
+  }
+}
+
+export async function removeLead(req: Request, res: Response): Promise<void> {
+  try {
+    await leadService.deleteLead(req.params.id);
+    res.status(204).send();
+  } catch (e: any) {
+    if (e.code === 'P2025') {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+    res.status(500).json({ error: 'Failed to delete lead' });
+  }
+}
+
+export async function assignLead(req: Request, res: Response): Promise<void> {
+  try {
+    const { agentId } = req.body;
+    const lead = await leadService.updateLead(req.params.id, {
+      assignedAgentId: agentId || null,
+    });
+    res.json(lead);
+  } catch (e: any) {
+    if (e.code === 'P2025') {
+      res.status(404).json({ error: 'Lead not found' });
+      return;
+    }
+    res.status(400).json({ error: e.message || 'Failed to assign lead' });
+  }
+}
