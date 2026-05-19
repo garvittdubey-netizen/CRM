@@ -1,0 +1,47 @@
+{
+  "summary": "Full backend + frontend testing of Real Estate CRM. Backend 100% pass. Frontend mostly works with one critical bug: login error message not shown for wrong credentials due to 401 interceptor in api.ts redirecting to /login before UI can show error.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "LoginPage + api.ts interceptor",
+        "issue": "Wrong credentials do NOT show error message. Root cause: api.ts response interceptor catches ALL 401s and does window.location.href = '/login' (full page reload), which clears React state before setError() can render the message.",
+        "selector": "[data-testid='login-error']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix api.ts 401 interceptor: exclude '/api/auth/login' from the global redirect. Only redirect to /login on 401 for authenticated routes, not the login endpoint itself. Example fix: if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) { window.location.href = '/login'; }"
+  ],
+  "critical_code_review_comments": [
+    "api.ts (line 26-28): Global 401 interceptor redirects ALL 401 responses including /api/auth/login to /login via window.location.href. This causes page reload which wipes React state, so login error messages never display. Fix: exclude auth/login endpoint from redirect."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth.py"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 tests passed)",
+    "frontend": "93% (13/14 features working, error message on wrong credentials broken)"
+  },
+  "test_credentials": "admin@realestate.com / Admin@2036",
+  "seed_data_creation": "",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend all green. Frontend works except login error message not visible. Check api.ts interceptor fix - after fix, test by entering wrong credentials (wrong@test.com / wrongpass) and verify error appears without page reload.",
+  "rca_of_issue": {
+    "bug": "Login error message not shown for wrong credentials",
+    "root_cause": "api.ts response interceptor at line 26 catches ALL 401 responses and calls window.location.href = '/login'. This full page reload happens before the LoginPage catch block can call setError(). The page remounts fresh with no error.",
+    "reproduction": "1. Go to /login. 2. Fill wrong email/password. 3. Click Sign in. 4. 401 received from server. 5. Interceptor redirects to /login (full reload). 6. No error message displayed.",
+    "mitigation": "In api.ts interceptor, add check: if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) before the redirect."
+  }
+}
