@@ -43,6 +43,12 @@ export async function loginUser(
     throw new Error('Invalid email or password');
   }
 
+  if (!user.isActive) {
+    const err = new Error('Account is disabled. Contact your administrator.');
+    (err as Error & { code?: string }).code = 'ACCOUNT_DISABLED';
+    throw err;
+  }
+
   const dto = toDto(user);
   return { user: dto, token: generateToken(dto) };
 }

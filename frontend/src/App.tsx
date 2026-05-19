@@ -10,6 +10,7 @@ import LeadDetailPage from '@/pages/LeadDetailPage';
 import FollowUpsPage from '@/pages/FollowUpsPage';
 import CommunicationsPage from '@/pages/CommunicationsPage';
 import ActivitiesPage from '@/pages/ActivitiesPage';
+import UsersPage from '@/pages/UsersPage';
 
 export default function App() {
   return (
@@ -29,6 +30,12 @@ export default function App() {
             <Route path="/followups" element={<FollowUpsPage />} />
             <Route path="/communications" element={<CommunicationsPage />} />
             <Route path="/activity" element={<ActivitiesPage />} />
+          </Route>
+          {/* Admin-only routes */}
+          <Route element={<ProtectedRoute roles={['ADMIN']} />}>
+            <Route element={<MainLayout />}>
+              <Route path="/users" element={<UsersPage />} />
+            </Route>
           </Route>
         </Route>
 

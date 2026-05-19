@@ -1,21 +1,20 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
-import { prisma } from '../lib/prisma';
-
-export const usersRouter = Router();
+import { listUsers, createUser, updateUser } from '../controllers/user.controller';
 
 /**
- * GET /api/users — full user listing.
- * Restricted to ADMIN to avoid exposing admin accounts/emails to agents.
+ * User-management routes (ADMIN only).
+ *
+ * GET    /api/users          list users with optional ?search & ?role & ?isActive
+ * POST   /api/users          create a new user
+ * PUT    /api/users/:id      edit user (name / role / isActive / optional password)
+ *
+ * Email is intentionally immutable. Disable a user instead of deleting them
+ * — destructive deletes would orphan leads / follow-ups / activities and
+ * audit history is more valuable than a green field.
  */
-usersRouter.get('/', authenticate, requireRole('ADMIN'), async (_req, res) => {
-  try {
-    const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true },
-      orderBy: { name: 'asc' },
-    });
-    res.json(users);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
+export const usersRouter = Router();
+
+usersRouter.get('/', authenticate, requireRole('ADMIN'), listUsers);
+usersRouter.post('/', authenticate, requireRole('ADMIN'), createUser);
+usersRouter.put('/:id', authenticate, requireRole('ADMIN'), updateUser);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Pencil, Trash2, UserCircle, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, Trash2, UserCircle, ChevronLeft, ChevronRight, MessageSquare, Upload, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/leads/StatusBadge';
 import { LeadFormModal } from '@/components/leads/LeadFormModal';
+import { ImportLeadsModal } from '@/components/leads/ImportLeadsModal';
 import { leadsApi } from '@/services/leads';
-import { extractApiError } from '@/services/api';
+import api, { extractApiError } from '@/services/api';
 import type { Lead, LeadsResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -35,6 +36,24 @@ export default function LeadsPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const isAdmin = user?.role === 'ADMIN';
+
+  const handleExport = async () => {
+    try {
+      const res = await api.get('/api/leads/export', { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      window.alert(extractApiError(e, 'Failed to export leads'));
+    }
+  };
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -86,10 +105,30 @@ export default function LeadsPage() {
             {data ? `${data.total} lead${data.total !== 1 ? 's' : ''}` : 'Manage your leads'}
           </p>
         </div>
-        <Button onClick={() => setAddOpen(true)} data-testid="add-lead-button">
-          <Plus size={16} className="mr-1.5" />
-          Add Lead
-        </Button>
+        <div className="flex items-center gap-2" data-testid="leads-header-actions">
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            data-testid="export-leads-button"
+          >
+            <Download size={15} className="mr-1.5" />
+            Export
+          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={() => setImportOpen(true)}
+              data-testid="import-leads-button"
+            >
+              <Upload size={15} className="mr-1.5" />
+              Import
+            </Button>
+          )}
+          <Button onClick={() => setAddOpen(true)} data-testid="add-lead-button">
+            <Plus size={16} className="mr-1.5" />
+            Add Lead
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -182,7 +221,7 @@ export default function LeadsPage() {
                       <LeadTableRow
                         key={lead.id}
                         lead={lead}
-                        isAdmin={user?.role === 'ADMIN'}
+                        isAdmin={isAdmin}
                         onView={() => navigate(`/leads/${lead.id}`)}
                         onEdit={() => setEditLead(lead)}
                         onDelete={() => handleDelete(lead)}
@@ -214,6 +253,13 @@ export default function LeadsPage() {
         lead={editLead}
         onClose={() => setEditLead(null)}
         onSuccess={() => { fetchLeads(); setEditLead(null); }}
+      />
+
+      {/* Import CSV Modal */}
+      <ImportLeadsModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onComplete={fetchLeads}
       />
     </div>
   );

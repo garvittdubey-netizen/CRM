@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CalendarCheck2, CalendarClock, AlertOctagon, Users, TrendingUp } from 'lucide-react';
+import { CalendarCheck2, CalendarClock, AlertOctagon, Users, TrendingUp, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UpcomingFollowUpsWidget } from '@/components/followups/UpcomingFollowUpsWidget';
 import { ActivityWidget } from '@/components/activities/ActivityWidget';
@@ -13,6 +20,7 @@ import { AgentPerformanceCards } from '@/components/dashboard/AgentPerformanceCa
 import { CommunicationStatsCards } from '@/components/dashboard/CommunicationStatsCards';
 import { followUpsApi } from '@/services/followups';
 import { analyticsApi, rangeToParams } from '@/services/analytics';
+import api, { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type {
   FollowUpDashboardStats,
@@ -126,6 +134,29 @@ export default function DashboardPage() {
     setTo(nextTo);
   };
 
+  /**
+   * Streams a single analytics section as a CSV download. The endpoint
+   * mirrors the JSON one (same `range`/`from`/`to` query params + RBAC).
+   */
+  const downloadAnalyticsCsv = async (section: string, label: string) => {
+    try {
+      const params = rangeToParams(range, from, to);
+      const res = await api.get(`/api/analytics/export/${section}`, {
+        params,
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analytics-${label}-${range}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      window.alert(extractApiError(e, `Failed to export ${label}`));
+    }
+  };
+
   const topStatCards: StatCardConfig[] = [
     {
       testIdKey: 'todays-followups',
@@ -215,7 +246,61 @@ export default function DashboardPage() {
             {isAdmin ? 'Tenant-wide metrics across every agent.' : 'Your personal performance metrics.'}
           </p>
         </div>
-        <DateRangeFilter range={range} from={from} to={to} onChange={handleRangeChange} />
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangeFilter range={range} from={from} to={to} onChange={handleRangeChange} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8" data-testid="export-analytics-button">
+                <Download size={13} className="mr-1.5" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                onClick={() => downloadAnalyticsCsv('overview', 'overview')}
+                data-testid="export-overview-csv"
+              >
+                <Download size={13} />
+                Overview
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => downloadAnalyticsCsv('leads-by-status', 'leads-by-status')}
+                data-testid="export-leads-by-status-csv"
+              >
+                <Download size={13} />
+                Leads by status
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => downloadAnalyticsCsv('leads-by-source', 'leads-by-source')}
+                data-testid="export-leads-by-source-csv"
+              >
+                <Download size={13} />
+                Leads by source
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => downloadAnalyticsCsv('followups', 'followups')}
+                data-testid="export-followups-csv"
+              >
+                <Download size={13} />
+                Follow-ups
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => downloadAnalyticsCsv('agents', 'agents')}
+                data-testid="export-agents-csv"
+              >
+                <Download size={13} />
+                Agent performance
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => downloadAnalyticsCsv('communications', 'communications')}
+                data-testid="export-communications-csv"
+              >
+                <Download size={13} />
+                Communications
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Conversion + Communication stats row */}

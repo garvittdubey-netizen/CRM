@@ -14,7 +14,9 @@ export async function login(req: Request, res: Response): Promise<void> {
     res.json(result);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Login failed';
-    res.status(401).json({ error: message });
+    const code = (error as { code?: string })?.code;
+    const status = code === 'ACCOUNT_DISABLED' ? 403 : 401;
+    res.status(status).json({ error: message });
   }
 }
 
