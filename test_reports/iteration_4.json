@@ -1,0 +1,54 @@
+{
+  "summary": "Frontend follow-up module verified end-to-end against the 11-point spec for both ADMIN and AGENT roles. All 11 checks passed. No frontend bugs found in this iteration.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "FollowUpFormModal (Dialog)",
+        "issues": [
+          "Radix DialogContent emits accessibility warning: 'Missing Description or aria-describedby={undefined} for {DialogContent}'. Add a DialogDescription (or aria-describedby) inside DialogHeader to satisfy a11y best practices. Non-blocking."
+        ]
+      }
+    ]
+  },
+  "test_results_per_spec_item": {
+    "1_followups_page_loads": "PASS — data-testid='followups-page' present; 'New Follow-up' button, window/status filters, view toggle all rendered. Header shows '3 follow-ups' count.",
+    "2_create_followup_modal": "PASS — Modal opened from add-followup-button. All required fields visible (lead-select, date-input, reminder-input, status-select, notes-textarea, form-submit). Submit created a new row (3 -> 4) and modal auto-closed.",
+    "3_edit_followup_modal": "PASS — edit-followup-{id} opens modal with title 'Edit Follow-up' and pre-filled date value (e.g., '2026-05-18T13:40').",
+    "4_dashboard_stat_cards": "PASS — stat-card-todays-followups, stat-card-overdue-followups, stat-card-upcoming-followups, stat-card-leads all render. Visual confirmation via screenshot: today=1, overdue=1, upcoming=2 matches seeded data.",
+    "5_upcoming_widget": "PASS — data-testid='upcoming-followups-widget' renders with 'View all' link to /followups.",
+    "6_reminder_badge_classification": "PASS — Found reminder-badge-today, reminder-badge-overdue, and reminder-badge-pending on the seeded follow-ups. classifyFollowUp correctly buckets PENDING-past as OVERDUE and PENDING-today as TODAY.",
+    "7_lead_timeline": "PASS — /leads/{leadId} renders data-testid='lead-timeline' with 3 timeline-item-{id} entries and a visible 'Schedule' button (canManage = true for admin).",
+    "8_view_toggle": "PASS — Switching to data-testid='view-calendar' renders data-testid='followup-calendar'. Switching back to view-list renders data-testid='followups-list'.",
+    "9_admin_visibility": "PASS — As ADMIN, followup-agent-select is visible inside the modal; delete-followup-{id} appears on row hover alongside edit-followup-{id} and complete-followup-{id}.",
+    "10_agent_visibility": "PASS — As AGENT, followup-agent-select is NOT in the DOM, and delete-followup-{id} is NOT rendered on hover (only edit + complete are shown).",
+    "11_mark_complete": "PASS — Clicking complete-followup-{id} on a PENDING row caused the badge to update to reminder-badge-completed after refetch."
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional a11y polish: add <DialogDescription> (or aria-describedby) inside FollowUpFormModal's DialogHeader to silence the Radix warning. No functional impact."
+  ],
+  "critical_code_review_comments": [
+    "FollowUpFormModal.useEffect dependency array omits `lead?.id`/`followUp?.id` — uses `lead`/`followUp` object refs directly. If a parent re-creates these objects on render, the effect will re-fire unnecessarily, briefly clobbering user edits. Consider depending on the stable id fields instead.",
+    "FollowUpsPage.fetchData clears items to [] on any error (line 84-85). For transient network errors this can wipe a populated list and look like data loss to the user. Prefer keeping last-known items and surfacing a toast/inline error.",
+    "ReminderBadge data-testid is derived from `status.toLowerCase()`, so the testid for status='OVERDUE' is 'reminder-badge-overdue' (matches spec). Verified across all three buckets.",
+    "AGENT role hiding is done correctly in two places: agent-select is gated by `isAdmin` in FollowUpFormModal (line 230) and delete button is gated by `isAdmin` in FollowUpsPage FollowUpRow (line 332). Good defense-in-depth; backend already enforces RBAC.",
+    "DialogContent across the codebase is missing DialogDescription — emits accessibility warnings on every open. Add a project-wide convention or a wrapper component to ensure each dialog has a description."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "not tested this iteration (per request)",
+    "frontend": "100% (11/11 spec items passed for both ADMIN and AGENT)"
+  },
+  "test_credentials": "Admin: admin@realestate.com / Admin@2036 — Agent: agent@realestate.com / Agent@2036 (read from /app/memory/test_credentials.md). Token stored in localStorage key 'auth_token'.",
+  "seed_data_creation": "Did NOT create new persistent seed data. The CREATE-flow test added one extra follow-up (notes='TEST_created_by_agent') for the existing Demo Lead — assigned to admin, status PENDING. Also, the mark-complete test flipped one originally-upcoming PENDING follow-up to COMPLETED. If a clean re-test is needed, re-seed via the existing seed script.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Follow-up frontend module is fully verified — all 11 spec items pass for both ADMIN and AGENT. Only outstanding cosmetic issue is the Radix DialogContent a11y warning (missing DialogDescription) which affects multiple dialogs in the app. State of seeded data after this run: 4 follow-ups (1 overdue, 1 today, 1 completed/was-upcoming, 1 newly-created PENDING). If next iteration needs the canonical 1/1/2 stats again, re-run the seed script.",
+  "rca_of_issue": "N/A — no defects discovered this iteration."
+}

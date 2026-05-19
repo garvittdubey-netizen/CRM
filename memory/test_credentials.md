@@ -1,26 +1,19 @@
-# Test Credentials - Real Estate CRM
+# Test Credentials
 
-## Admin User
-- **Email:** admin@realestate.com
-- **Password:** Admin@2036
-- **Role:** ADMIN
-- **Created by:** Auto-seeded on server startup
+## Admin
+- Email: `admin@realestate.com`
+- Password: `Admin@2036`
+- Role: ADMIN
 
-## Auth Endpoints
-- POST /api/auth/login
-- POST /api/auth/register
-- GET  /api/auth/me (requires Bearer token)
-- POST /api/auth/logout (requires Bearer token)
+## Agent
+- Email: `agent@realestate.com`
+- Password: `Agent@2036`
+- Role: AGENT
 
-## Database
-- PostgreSQL: localhost:5432
-- Database: real_estate_crm
-- User: postgres
-- Password: Admin@2036
-- Connection string: postgresql://postgres:Admin@2036@localhost:5432/real_estate_crm
+## Seeded Test Data
+- One lead "Demo Lead" assigned to Test Agent
+- 3 follow-ups (today / overdue / upcoming) all assigned to Test Agent
 
-## Service URLs
-- Frontend: http://localhost:3000
-- Backend (proxy): http://localhost:8001
-- Backend (Node.js): http://localhost:8002
-- Preview: https://b5446777-1bde-406a-8a40-8a08bc6c3a10.preview.emergentagent.com
+## URLs
+- Frontend: https://followup-frontend.preview.emergentagent.com
+- API base: same origin, all routes prefixed with `/api`
