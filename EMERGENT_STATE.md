@@ -180,6 +180,29 @@
     - `DashboardPage` toolbar gained `export-analytics-button` dropdown with 6 items (`export-{overview,leads-by-status,leads-by-source,followups,agents,communications}-csv`); each downloads the current-range CSV via `responseType: 'blob'`.
   - **Tested**: 34/34 backend pytest + 100% frontend Playwright UX (`/app/test_reports/iteration_9.json`). Verified: auth regression, disabled-login 403, RBAC on every users/import endpoint, last-admin guards, self-disable guard, sample-template content, import summary shape, mixed-validity CSV (1 imported / 1 skipped / 1 failed), all 6 analytics CSV exports w/ range params, frontend route guards, modal flows.
 
+**Phase 6.0: Mobile Responsiveness + Sidebar UX Polish** — COMPLETE & VERIFIED (2026-05-19, iteration_10.json)
+  - **Pure frontend iteration** — zero backend changes, zero changes to auth / leads / follow-ups / communication / WhatsApp / analytics / CSV / users / DB / architecture.
+  - **New Shadcn `Sheet` component** at `/app/frontend/src/components/ui/sheet.tsx` (built on already-installed `@radix-ui/react-dialog`). Side variants (`left|right|top|bottom`), animated entry via `animate-slide-in-left` keyframe added to `tailwind.config.ts`.
+  - **New shared nav source** at `/app/frontend/src/components/layout/nav-items.ts` (NAV_ITEMS + BOTTOM_NAV + `filterNavForRole`). Both desktop and mobile sidebars import from here — DRY guaranteed.
+  - **New `MobileSidebar.tsx`**: full-height left drawer (`data-testid=mobile-sidebar`), reuses nav items, auto-dismisses on nav click + Escape + overlay click. Mobile nav items expose `data-testid=mobile-nav-{label-lowercased}`. RBAC respected via `filterNavForRole` (AGENT can't see `mobile-nav-users`).
+  - **`Sidebar.tsx` refactored** for buttery-smooth collapse:
+    - Width transitions on a **single property** (`transition-[width] duration-300 ease-in-out`) — never `transition-all`, which would also animate children.
+    - Two width tokens only: `w-[260px]` ↔ `w-[68px]`. No intermediate states.
+    - Every nav row carries `whitespace-nowrap` + `overflow-hidden` so labels can't wrap during the animation.
+    - Icon container has fixed 18px box and uses `justify-center` when collapsed → icons stay pixel-perfectly centered.
+    - Tooltips (Radix) are conditionally mounted **only when collapsed**, so expanded mode has zero tooltip overhead.
+    - `NavLink` keeps the active-state `bg-primary` class regardless of collapse state.
+    - The aside exposes `data-collapsed="true|false"` for tests to assert against.
+  - **`MainLayout.tsx` rebuilt**:
+    - localStorage key `sidebar:collapsed` (`'1'` = collapsed, `'0'` = expanded). Read via a lazy `useState` initializer so there's no hydration flash. Written in a `useEffect` whenever the flag flips.
+    - Separates **persistent** `collapsed` (desktop) from **ephemeral** `mobileOpen` (drawer).
+    - Adds `min-w-0` on the main column so children with `overflow-x-auto` (e.g. leads table) actually clip instead of pushing layout.
+  - **`Navbar.tsx`**: prop renamed `onMobileSidebarToggle → onMobileMenuOpen` (semantics: it OPENS the drawer, doesn't toggle the desktop sidebar). `mobile-menu-button` already had `md:hidden` so behaviour at `<768px` is now correct.
+  - **Responsive behaviour confirmed** (verified at 390×844 mobile + 1440×900 desktop):
+    - Mobile: desktop sidebar `display:none`, hamburger visible, drawer mounts on tap, every nav item closes drawer on click, body has **0px** horizontal overflow on `/dashboard` and `/leads`, grids collapse to 1-col (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`), leads table scrolls horizontally inside its `overflow-x-auto` wrapper.
+    - Desktop: toggle flips `data-collapsed` and width 260↔68 within 300ms; `<main>` widens by 192px to match the delta; tooltips appear when hovering collapsed nav items; active route highlight persists in collapsed mode; reload preserves the chosen state (localStorage round-trip verified).
+  - **Tested**: 17/17 Phase 6 scenarios + 8/8 regression scenarios → 100% pass (`/app/test_reports/iteration_10.json`). Zero blocking issues; pre-existing TS warnings in `LeadDetailPage.tsx` + `services/api.ts` flagged for a future cleanup (not introduced this iteration).
+
 ---
 
 ## Database

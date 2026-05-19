@@ -1,58 +1,53 @@
 # PRD — Real Estate CRM
 
-## Latest iteration (Phase 5.0)
-> Build CSV Import/Export + User Management module only.
-> Backend: import leads from CSV, export leads CSV, export 6 separate analytics CSVs.
-> User management (ADMIN only): create/edit/disable/change-role/list users.
-> Frontend: drag-drop import modal, sample template, export buttons, /users page.
-> Requirements: use only Neon DB, real data only, reuse components, modular code.
+## Latest iteration (Phase 6.0)
+> Build Mobile Responsiveness + Final UI Polish only.
+> Mobile: Sheet drawer sidebar, responsive tables/cards/charts on every page.
+> Desktop sidebar UX: smooth width transition, centered icons, no clipping, no jumping,
+> hover tooltips when collapsed, persisted active state, localStorage persistence.
+> Requirements: reuse components, modify only required files, real data only.
 
 ## Architecture
-- Frontend: React 18 + Vite + TS + Tailwind + Shadcn (port 3000), `recharts` for charts.
+- Frontend: React 18 + Vite + TS + Tailwind + Shadcn (port 3000), `recharts`, `@radix-ui/react-dialog` powered Sheet.
 - Python proxy: FastAPI (port 8001) → Node API.
 - Node API: Express + Prisma + Multer (port 8002).
-- DB: Neon PostgreSQL (ap-southeast-1).
-- Auth: JWT (bcryptjs), token in localStorage `auth_token`.
+- DB: Neon PostgreSQL.
+- Auth: JWT (bcryptjs).
 
 ## User personas
-- ADMIN: full CRUD across all modules; only role with access to `/users`, lead CSV import, and user management.
-- AGENT: scoped to own leads/follow-ups/comms; can export own leads CSV.
+- ADMIN: full access — CSV imports, user management, tenant-wide analytics.
+- AGENT: scoped to own data. Mobile drawer hides admin-only items.
 
 ## Core requirements (static)
-- Lead module: CRUD + search + filters + role rules + agent assignment + source classification + CSV import/export.
-- Follow-up module: CRUD, stats, complete, calendar/list views, reminder classification.
-- Communication module: WhatsApp send/receive (Meta Cloud API), call log, conversations inbox.
-- Activity module: append-only audit feed.
-- Dashboard Analytics: KPIs + charts + filters + per-section CSV exports.
-- User Management (ADMIN): create/edit/disable/change-role with last-admin + self-disable safety.
+- Lead, Follow-up, Communication, Activity, Analytics, CSV, User Management modules.
+- Responsive across desktop (≥768px) and mobile (<768px).
+- Persistent sidebar state.
 
 ## What's implemented
-- [x] Auth + admin seed (Phase 1)
-- [x] Lead module (Phase 2)
-- [x] Follow-up backend + frontend (Phase 2.5)
-- [x] Neon DB migration (Phase 2.6)
-- [x] Communication module + Activity feed (Phase 3.0)
-- [x] Communication UX corrections (Phase 3.1)
-- [x] Quick replies in chat composer (Phase 3.2)
-- [x] Dashboard Analytics & Reporting (Phase 4.0, iteration_8 — 28/28 + 100%)
-- [x] **CSV Import/Export + User Management (Phase 5.0, iteration_9 — 34/34 + 100%)**
-  - `User.isActive` migration; disabled login → 403.
-  - Users CRUD with last-admin + self-disable guards; immutable email.
-  - Lead CSV import (multipart, dup phone/email detection, row-level summary), Lead CSV export, sample template.
-  - 6 analytics CSV exports (one per section) — same range/RBAC as JSON.
-  - /users admin page with search/role/status filters + UserFormModal + enable/disable toggle.
-  - LeadsPage Import/Export buttons + ImportLeadsModal with drag-drop.
-  - DashboardPage analytics export dropdown.
+- [x] Phase 1 Auth + admin seed
+- [x] Phase 2 Lead module
+- [x] Phase 2.5 Follow-up module
+- [x] Phase 2.6 Neon DB migration
+- [x] Phase 3.0 Communication module + Activity feed
+- [x] Phase 3.1 Communication UX corrections
+- [x] Phase 3.2 Quick replies in chat composer
+- [x] Phase 4.0 Dashboard Analytics & Reporting (iteration_8)
+- [x] Phase 5.0 CSV Import/Export + User Management (iteration_9)
+- [x] **Phase 6.0 Mobile Responsiveness + Sidebar UX Polish (iteration_10, 17/17 + 8/8 regression — 100%)**
+  - Shadcn Sheet component, MobileSidebar drawer (<md), Navbar hamburger.
+  - Shared `nav-items.ts` source.
+  - Sidebar: smooth `transition-[width]`, centered icons when collapsed, tooltips, active-state preserved.
+  - MainLayout: localStorage `sidebar:collapsed` persistence via lazy initializer.
+  - Mobile body overflow = 0; tables wrapped in `overflow-x-auto`; grids stack 1-col.
 
 ## Backlog (prioritized)
 - P1: Properties module (CRUD), Clients module, Deals module.
-- P2: Time-series trend charts on dashboard.
-- P2: PDF export option for analytics.
-- P2: Mobile sidebar drawer (Sheet).
-- P3: Add DialogDescription to UserFormModal + ImportLeadsModal for screen readers.
-- P3: Return HTTP 413 specifically on multer LIMIT_FILE_SIZE (currently bubbles up generic).
+- P2: Time-series trend charts.
+- P2: PDF export for analytics.
+- P3: Clean up pre-existing TS warnings in `LeadDetailPage.tsx` (missing useState) + `services/api.ts` (Vite ImportMeta typing).
+- P3: Add `DialogDescription` to all modals for screen readers.
 
 ## Next tasks
-1. Properties module (Prisma model + CRUD + UI) — feeds Phase 6 revenue analytics.
+1. Properties module (Prisma model + CRUD + UI).
 2. Clients & Deals modules.
-3. PDF export option for analytics.
+3. Pre-existing TS cleanup (P3).
