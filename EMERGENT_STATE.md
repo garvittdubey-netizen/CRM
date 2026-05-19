@@ -69,6 +69,35 @@
   - Verified end-to-end: admin + agent login, `/api/followups/stats`, `/api/leads`, `/api/agents` all return 200 against Neon.
   - Local Postgres 15 is no longer used; do not switch back.
 
+**Phase 3.0: Communication & Team Activity module** — COMPLETE & VERIFIED (2026-05-19, iteration_6.json)
+  - **Real Meta WhatsApp Cloud API integration** (Graph API v22.0). No `wa.me` links, no mocks.
+    - Backend service `services/whatsapp.service.ts` — `sendText`, `sendTemplate`, `listTemplates`. Uses `fetch` + Bearer token. Upstream 401 is remapped to HTTP 502 (so an expired Meta token does not get confused with our JWT auth on the frontend).
+    - Public webhook `POST /api/webhooks/whatsapp` — HMAC‑SHA256 signature verified against `WHATSAPP_APP_SECRET` using `crypto.timingSafeEqual` over the raw body buffer (`express.json({ verify })` captures `req.rawBody` before parsing).
+    - Webhook GET handshake echoes `hub.challenge` iff `hub.verify_token` matches `WHATSAPP_VERIFY_TOKEN`.
+    - Inbound messages auto-match a lead by phone-digits (best-effort) and create `direction=INBOUND` rows + `WHATSAPP_RECEIVED` activity. Status callbacks (sent/delivered/read/failed) update the matching outbound row via `whatsappMessageId`.
+  - **Prisma additions** (migration `20260519142922_add_communication_activity`):
+    - `Communication` (id, leadId, type, direction, message, templateName/Lang/Params, callDuration, callOutcome, status, whatsappMessageId UNIQUE, errorCode, errorDetail, createdById, timestamps)
+    - `Activity` (id, userId, leadId?, action, description, metadata, createdAt) — indexed by `(createdAt)`, `(userId,createdAt)`, `(leadId,createdAt)`.
+    - Enums `CommunicationType (WHATSAPP|CALL)`, `CommunicationDirection (INBOUND|OUTBOUND)`.
+  - **API surface** (all JWT-protected unless noted):
+    - `GET    /api/communications`                   list (RBAC: admin sees all, agent sees only assigned-lead rows)
+    - `GET    /api/communications/conversations`     inbox sidebar (one row per lead w/ last message)
+    - `GET    /api/communications/templates`         pass-through of APPROVED Meta templates
+    - `POST   /api/communications/whatsapp/send`     {leadId, message?|templateName+templateLang+templateParams}
+    - `POST   /api/communications/calls`             {leadId, callOutcome, callDuration?, notes?}
+    - `GET    /api/activities`                       paginated feed (RBAC scoped)
+    - `GET    /api/webhooks/whatsapp`                Meta verification handshake (public)
+    - `POST   /api/webhooks/whatsapp`                Meta callback (signature-verified, public)
+  - **Frontend pages / components**:
+    - `/communications` — full chat UX (inbox sidebar + ChatPanel + composer + template picker + call-log modal). Poll 10s.
+    - `/activity` — team activity feed with action filter and refresh, polls 10s.
+    - Dashboard `ActivityWidget` and per-lead `CommunicationTimeline` integrated into existing pages.
+    - Sidebar: Communications (`nav-communications`) and Activity (`nav-activity`) entries.
+  - **RBAC enforced server-side**: ADMIN sees everything; AGENT scoped to `lead.assignedAgentId === userId` for both communications and activities; cross-agent call/WhatsApp attempts return 403.
+  - **Activity logging** runs on every server-side write (WhatsApp send, call log, inbound receipt). Failures are caught and never roll back the parent action.
+  - **Tested**: 15/15 backend pytest assertions, 16/16 frontend specs (iteration_6.json). Webhook GET verification, HMAC signature verification (valid + invalid + missing), inbound message persistence + auto-activity, RBAC scoping, and the expired-token graceful error path all green.
+  - **Note on the provided Meta access token**: it is EXPIRED (Meta error code 190, expired 2026-05-18). The integration is fully real — once the user supplies a fresh access token (or a permanent System User token), send + templates will work without code changes.
+
 ---
 
 ## Database
