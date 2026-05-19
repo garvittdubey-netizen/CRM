@@ -20,8 +20,46 @@ model User {
   followUps       FollowUp[]      @relation("FollowUpAgent")
   communications  Communication[] @relation("CommunicationCreator")
   activities      Activity[]      @relation("UserActivities")
+  properties      Property[]      @relation("PropertyOwnerAgent")
 
   @@map("users")
+}
+
+model Property {
+  id            String         @id @default(cuid())
+  title         String
+  propertyType  String
+  location      String
+  city          String
+  price         Decimal        @db.Decimal(15, 2)
+  area          Float
+  areaUnit      AreaUnit       @default(SQFT)
+  bedrooms      Int?
+  bathrooms     Int?
+  status        PropertyStatus @default(AVAILABLE)
+  description   String?        @db.Text
+  images        String[]
+  ownerAgentId  String?
+  ownerAgent    User?          @relation("PropertyOwnerAgent", fields: [ownerAgentId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status, createdAt])
+  @@index([city])
+  @@index([propertyType])
+  @@index([ownerAgentId])
+  @@map("properties")
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  SOLD
+  RESERVED
+}
+
+enum AreaUnit {
+  SQFT
+  SQM
 }
 
 model Lead {

@@ -12,6 +12,8 @@ import CommunicationsPage from '@/pages/CommunicationsPage';
 import ActivitiesPage from '@/pages/ActivitiesPage';
 import PipelinePage from '@/pages/PipelinePage';
 import UsersPage from '@/pages/UsersPage';
+import PropertiesPage from '@/pages/PropertiesPage';
+import PropertyDetailPage from '@/pages/PropertyDetailPage';
 
 export default function App() {
   return (
@@ -32,6 +34,8 @@ export default function App() {
             <Route path="/followups" element={<FollowUpsPage />} />
             <Route path="/communications" element={<CommunicationsPage />} />
             <Route path="/activity" element={<ActivitiesPage />} />
+            <Route path="/properties" element={<PropertiesPage />} />
+            <Route path="/properties/:id" element={<PropertyDetailPage />} />
           </Route>
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>

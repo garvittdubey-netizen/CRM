@@ -10,6 +10,8 @@ import { communicationRouter } from './routes/communications.routes';
 import { activityRouter } from './routes/activities.routes';
 import { analyticsRouter } from './routes/analytics.routes';
 import { whatsappWebhookRouter } from './routes/whatsapp-webhook.routes';
+import { propertyRouter } from './routes/property.routes';
+import { uploadRouter } from './routes/upload.routes';
 import { prisma } from './lib/prisma';
 import { seedAdmin } from './scripts/seed';
 
@@ -65,6 +67,8 @@ app.use('/api/followups', followUpRouter);
 app.use('/api/communications', communicationRouter);
 app.use('/api/activities', activityRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/properties', propertyRouter);
+app.use('/api/uploads', uploadRouter);
 
 // 404 handler
 app.use((_req, res) => {

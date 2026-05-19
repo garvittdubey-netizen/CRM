@@ -292,3 +292,79 @@ export interface CommunicationStats {
   callsLogged: number;
   total: number;
 }
+
+// ── Property Module ──────────────────────────────────────────────────────────
+
+export type PropertyStatus = 'AVAILABLE' | 'SOLD' | 'RESERVED';
+
+export type AreaUnit = 'SQFT' | 'SQM';
+
+export interface Property {
+  id: string;
+  title: string;
+  propertyType: string;
+  location: string;
+  city: string;
+  price: number;
+  area: number;
+  areaUnit: AreaUnit;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  status: PropertyStatus;
+  description: string | null;
+  images: string[];
+  ownerAgentId: string | null;
+  ownerAgent: { id: string; name: string; email: string; role: UserRole } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PropertiesResponse {
+  properties: Property[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface CreatePropertyData {
+  title: string;
+  propertyType: string;
+  location: string;
+  city: string;
+  price: number;
+  area: number;
+  areaUnit?: AreaUnit;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  status?: PropertyStatus;
+  description?: string;
+  images?: string[];
+  ownerAgentId?: string | null;
+}
+
+export type UpdatePropertyData = Partial<CreatePropertyData>;
+
+export interface MatchingLead {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  status: LeadStatus;
+  source: LeadSource;
+  preferredLocation: string | null;
+  propertyType: string | null;
+  budget: number | null;
+  assignedAgent: { id: string; name: string; email: string } | null;
+  nextFollowUp: { id: string; followUpDate: string; status: FollowUpStatus } | null;
+  matchScore: number;
+}
+
+export interface CloudinarySignature {
+  signature: string;
+  timestamp: number;
+  cloudName: string;
+  apiKey: string;
+  folder: string;
+  uploadUrl: string;
+}

@@ -43,15 +43,13 @@
   - `LeadSource` enum added Phase 4.0 (default `MANUAL`); existing leads migrated to MANUAL.
   - Tested: 17/17 backend + 13/13 frontend E2E (iteration_2.json)
 - [x] **Dashboard Analytics & Reporting module (Phase 4.0)** — see Phase 4.0 below
+- [x] **Properties module (Phase 8.0)** — see Phase 8.0 below
 
 ### Pending Features
-- [ ] Properties module (listing, CRUD)
 - [ ] Clients module
 - [ ] Deals module
 - [ ] Reports (Admin only)
-- [ ] User management page (Admin only)
 - [ ] Settings page
-- [ ] Mobile sidebar (Sheet/Drawer)
 
 ### Current Phase
 **Phase 2: Lead Management** — COMPLETE
@@ -287,6 +285,61 @@
     - Source badge says "Portal" while the dropdown shows "Property Portal" — intentional for badge compactness.
     - `window.alert` used for rollback notification; can be upgraded to sonner/toast later.
     - 500-lead fetch is unpaginated — fine for current scale, consider virtualization beyond ~500 leads/tenant.
+
+**Phase 8.0: Properties Module + Cloudinary Image Uploads** — COMPLETE (2026-05-19)
+  - **Scope**: Real Property model on Neon Postgres + full CRUD + search/filters + Cloudinary multi-image direct upload + ADMIN/AGENT ownership RBAC + Matching Leads sidebar.
+  - **Zero changes** to auth, leads, follow-ups, communication, WhatsApp, analytics, CSV import/export, user management, pipeline, database config or architecture. New module is purely additive.
+  - **New Prisma migration**: `20260519200643_add_property_model` adds:
+    - Model `Property` (id, title, propertyType, location, city, price `Decimal(15,2)`, area `Float`, areaUnit `AreaUnit`, bedrooms `Int?`, bathrooms `Int?`, status `PropertyStatus`, description `Text?`, images `String[]`, ownerAgentId FK → User, createdAt/updatedAt). Indexes on `(status, createdAt)`, `(city)`, `(propertyType)`, `(ownerAgentId)`.
+    - Enum `PropertyStatus`: `AVAILABLE | SOLD | RESERVED` (default `AVAILABLE`).
+    - Enum `AreaUnit`: `SQFT | SQM` (default `SQFT`).
+    - `User.properties` back-relation `@relation("PropertyOwnerAgent")` so `prisma.user.properties` works for future agent dashboards.
+  - **Cloudinary integration** (real, end-to-end, no mocks):
+    - `cloudinary@2.10.0` npm package + env vars `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_UPLOAD_FOLDER=properties` added to `/app/backend/.env`. `API_SECRET` never leaves the backend.
+    - `services/cloudinary.service.ts` — singleton config + `signUpload(folder)` returns `{signature, timestamp, cloudName, apiKey, folder, uploadUrl}`. Folder is validated against an allow-list (`properties/`) so a leaked signature can't upload outside the bucket.
+    - `controllers/upload.controller.ts` + `routes/upload.routes.ts` mount `GET /api/uploads/cloudinary-signature?folder=properties` (JWT-authenticated only). Verified live — admin token returns a valid signature payload from Cloudinary cloud `dd61mc8me`.
+    - `publicIdFromUrl(url)` + `deleteAssetByUrl(url)` clean up Cloudinary assets when a Property is deleted (best-effort — DB delete is the source of truth and is never rolled back by a Cloudinary failure).
+    - Frontend `services/properties.ts → uploadImageToCloudinary(file, onProgress)` uses `XMLHttpRequest` (for progress events) to POST directly to `api.cloudinary.com`, then returns the `secure_url` which the form appends to `Property.images[]`. Only URLs are persisted in Postgres.
+    - Display URLs are passed through `buildCloudinaryUrl(url, {width, crop})` which inserts `q_auto,f_auto,w_<n>,c_fill` — Cloudinary serves an automatically size- and format-optimized variant.
+  - **Backend API surface** (all JWT-protected, `/api/properties/*`):
+    - `GET    /api/properties`                  list w/ pagination + filters (search, propertyType, city, status, minPrice, maxPrice, ownerAgentId, sortBy, sortOrder). Search is a case-insensitive substring across `title|location|city|description`. Both ADMIN and AGENT see all properties.
+    - `POST   /api/properties`                  create. Required: `title, propertyType, location, city, price>0, area>0`. AGENT's listing is auto-owned by themselves (cannot override). ADMIN may override `ownerAgentId` (defaults to admin's own id when omitted).
+    - `GET    /api/properties/:id`              fetch one (includes ownerAgent).
+    - `PUT    /api/properties/:id`              partial update. ADMIN edits any; AGENT only own (403 otherwise). AGENT cannot change `ownerAgentId` via PUT.
+    - `DELETE /api/properties/:id`              ADMIN any; AGENT only own. Cleans up Cloudinary assets after the DB row is removed.
+    - `PATCH  /api/properties/:id/assign`       ADMIN only — reassign owner.
+    - `GET    /api/properties/:id/matching-leads` read-only suggestions. SQL OR across: lead.preferredLocation contains property.location/city, lead.propertyType matches, lead.budget >= property.price. AGENT scope: only their assigned leads.  Excludes `WON|LOST` leads. Scored & sorted by relevance, max 25 rows. Includes the lead's soonest PENDING follow-up.
+  - **RBAC** (mirrors the Lead module pattern):
+    - ADMIN: full CRUD on any property, can assign owners, sees every match.
+    - AGENT: create their own, edit/delete only own (403 otherwise), can never reassign via PUT, only sees their own assigned leads in the matching-leads sidebar.
+  - **Frontend pages / routes**:
+    - `/properties` — `PropertiesPage` with header, grid/list view toggle (`view-grid-button` / `view-list-button`, persisted in localStorage `properties:view`), sticky filter sidebar (`property-filters-panel` w/ search, type, city, status, min/max price), responsive grid (`grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`) of `PropertyCard`s, list view rendered as `PropertyListRow`s, pagination, skeleton + empty states, "Add Property" CTA visible to both roles.
+    - `/properties/:id` — `PropertyDetailPage` with back button, role-gated Edit/Delete buttons (`canManage` = admin OR ownerAgent), `PropertyImageGallery` (hero + thumbs + prev/next controls + counter), price + area headline, 4-up stat tiles (bedrooms / bathrooms / area / listed date), owner-agent line, multi-line description, right-rail `MatchingLeadsSidebar` (reuses `StatusBadge` from Lead module — read-only suggestions with phone/budget/location/agent + quick "Open WhatsApp" + "Open lead" actions; deep-links to `/leads/:id` and `/communications?leadId=:id`), plus a metadata card (Updated / ID).
+  - **Components added** (`/app/frontend/src/components/properties/`):
+    - `PropertyStatusBadge.tsx` — colour-coded badge for AVAILABLE / RESERVED / SOLD.
+    - `PropertyImageUploader.tsx` — drag-and-drop multi-file Cloudinary uploader. Per-file blob preview, XHR progress bar, per-file error card with dismiss, client-side validation (image/*, ≤ 8 MB, ≤ 10 files), remove uploaded URL with `remove-image-button`, fully controlled (parent owns `images: string[]`).
+    - `PropertyImageGallery.tsx` — detail-page gallery with hero (`property-gallery-hero`), thumbnail strip (`property-gallery-thumb-{i}`), prev/next nav, `1 / N` counter, graceful no-image fallback.
+    - `PropertyCard.tsx` + `PropertyListRow.tsx` — two render flavours sharing `formatPrice`, `formatArea`, `buildCloudinaryUrl` from `lib/property-format.ts`.
+    - `PropertyFormModal.tsx` — Add/Edit dialog. Fields: title, propertyType (6 options), status, location, city, price, area + areaUnit (SQFT/SQM), bedrooms, bathrooms, images (uploader), ownerAgent (admin-only dropdown via `agentsApi.list()`), description. Surface 403s and validation errors via `extractApiError`.
+    - `PropertyFiltersPanel.tsx` — sticky sidebar w/ `EMPTY_FILTERS` constant + dirty-state "Clear filters" pill.
+    - `MatchingLeadsSidebar.tsx` — reuses Lead `StatusBadge`, lists up to 25 sorted matches with quick-message + open-lead actions.
+  - **Cloudinary cloud used**: `dd61mc8me` (user-provided). Verified end-to-end — admin login → `GET /api/uploads/cloudinary-signature?folder=properties` returns a signed payload; the browser uploader then POSTs directly to `https://api.cloudinary.com/v1_1/dd61mc8me/image/upload` and stores `secure_url` in `Property.images[]`.
+  - **Files modified / added**:
+    - Modified: `backend/.env`, `backend/prisma/schema.prisma`, `backend/src/index.ts`, `frontend/src/App.tsx`, `frontend/src/types/index.ts`.
+    - Added (backend): `services/cloudinary.service.ts`, `services/property.service.ts`, `controllers/property.controller.ts`, `controllers/upload.controller.ts`, `routes/property.routes.ts`, `routes/upload.routes.ts`, migration `20260519200643_add_property_model/`.
+    - Added (frontend): `services/properties.ts`, `lib/property-format.ts`, `pages/PropertiesPage.tsx`, `pages/PropertyDetailPage.tsx`, plus the 7 components under `components/properties/`.
+    - `nav-items.ts` already contained the `Properties` entry from Phase 6.0 — no change needed.
+  - **Files NOT touched**: auth (any), leads (any), follow-ups (any), communications (any), WhatsApp routes/service (any), analytics (any), CSV import/export (any), users management (any), pipeline (any), MainLayout, Navbar, Sidebar, MobileSidebar, nav-items, DB config (only an additive migration).
+  - **Live smoke test** (admin token):
+    ```
+    POST /api/properties → 201 (Sea-facing 3BHK, Bandra West, Mumbai, ₹3.5Cr, 1500 SQFT, Apartment, AVAILABLE, owned by admin)
+    GET  /api/properties → 1 property
+    GET  /api/uploads/cloudinary-signature?folder=properties → {signature, timestamp, cloudName: "dd61mc8me", apiKey, uploadUrl}
+    ```
+  - **UI verified** via screenshots at 1440x900 (light theme):
+    - `/properties` lists the seeded card with Available badge, type chip "Apartment", location "Bandra West, Mumbai", 3 beds · 3 baths · 1500 SQFT, ₹3.50 Cr, owner "Admin", grid/list toggle visible, "Add Property" button visible, filter sidebar with all 5 controls.
+    - `/properties/:id` shows back button, Edit + Delete buttons (admin), "No images uploaded" gallery placeholder, title + Available status dot, ₹3.50 Cr · 1500 SQFT headline, "Matching Leads · Finding matches…" sidebar, metadata card.
+    - "Add New Property" modal renders every field including the image dropzone "Drop images here or click to upload · 0/10 added".
 
 ---
 
