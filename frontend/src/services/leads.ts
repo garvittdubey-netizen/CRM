@@ -30,6 +30,19 @@ export const leadsApi = {
     api.patch<Lead>(`/api/leads/${id}/assign`, { agentId }).then((r) => r.data),
 };
 
+// Full user listing — ADMIN only on the backend.
 export const usersApi = {
   list: () => api.get<User[]>('/api/users').then((r) => r.data),
+};
+
+// Minimal agent directory (id, name, role) — available to any authenticated user.
+// Used by the lead-assignment dropdown so we don't leak admin accounts.
+export interface AgentOption {
+  id: string;
+  name: string;
+  role: 'AGENT';
+}
+
+export const agentsApi = {
+  list: () => api.get<AgentOption[]>('/api/agents').then((r) => r.data),
 };

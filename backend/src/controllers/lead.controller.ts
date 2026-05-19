@@ -54,14 +54,41 @@ export async function addLead(req: Request, res: Response): Promise<void> {
 
 export async function editLead(req: Request, res: Response): Promise<void> {
   try {
+    // Ownership rule: ADMIN can edit any lead.
+    // AGENT can edit only leads currently assigned to themselves.
+    if (req.user!.role !== 'ADMIN') {
+      const existing = await leadService.getLeadById(req.params.id);
+      if (!existing) {
+        res.status(404).json({ error: 'Lead not found' });
+        return;
+      }
+      if (existing.assignedAgentId !== req.user!.id) {
+        res.status(403).json({
+          error: 'You can only edit leads assigned to you',
+        });
+        return;
+      }
+      // Prevent agents from re-assigning leads via the edit endpoint
+      if (
+        req.body.assignedAgentId !== undefined &&
+        req.body.assignedAgentId !== req.user!.id
+      ) {
+        res.status(403).json({
+          error: 'Only an admin can reassign leads',
+        });
+        return;
+      }
+    }
+
     const lead = await leadService.updateLead(req.params.id, req.body);
     res.json(lead);
-  } catch (e: any) {
-    if (e.code === 'P2025') {
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string };
+    if (err.code === 'P2025') {
       res.status(404).json({ error: 'Lead not found' });
       return;
     }
-    res.status(400).json({ error: e.message || 'Failed to update lead' });
+    res.status(400).json({ error: err.message || 'Failed to update lead' });
   }
 }
 

@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/leads/StatusBadge';
 import { LeadFormModal } from '@/components/leads/LeadFormModal';
 import { leadsApi } from '@/services/leads';
+import { extractApiError } from '@/services/api';
 import type { Lead } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -74,10 +75,13 @@ export default function LeadDetailPage() {
   const handleSaveNotes = async () => {
     if (!lead) return;
     setSavingNotes(true);
+    setNotesError('');
     try {
       const updated = await leadsApi.update(lead.id, { notes: notesValue });
       setLead(updated);
       setEditingNotes(false);
+    } catch (e) {
+      setNotesError(extractApiError(e, 'Failed to save notes.'));
     } finally {
       setSavingNotes(false);
     }
@@ -85,8 +89,12 @@ export default function LeadDetailPage() {
 
   const handleDelete = async () => {
     if (!lead || !window.confirm(`Delete lead "${lead.fullName}"?`)) return;
-    await leadsApi.delete(lead.id);
-    navigate('/leads');
+    try {
+      await leadsApi.delete(lead.id);
+      navigate('/leads');
+    } catch (e) {
+      window.alert(extractApiError(e, 'Failed to delete lead.'));
+    }
   };
 
   if (loading) {
@@ -105,6 +113,10 @@ export default function LeadDetailPage() {
   }
 
   if (!lead) return null;
+
+  // Ownership rule mirrored from backend: ADMIN edits anything,
+  // AGENT only edits leads currently assigned to them.
+  const canEdit = user?.role === 'ADMIN' || lead.assignedAgentId === user?.id;
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto animate-fade-in" data-testid="lead-detail-page">
@@ -128,15 +140,17 @@ export default function LeadDetailPage() {
 
         <div className="flex items-center gap-2">
           <StatusBadge status={lead.status} showDot />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditOpen(true)}
-            data-testid="edit-lead-button"
-          >
-            <Pencil size={13} className="mr-1.5" />
-            Edit
-          </Button>
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditOpen(true)}
+              data-testid="edit-lead-button"
+            >
+              <Pencil size={13} className="mr-1.5" />
+              Edit
+            </Button>
+          )}
           {user?.role === 'ADMIN' && (
             <Button
               variant="destructive"
@@ -191,7 +205,7 @@ export default function LeadDetailPage() {
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Notes
               </CardTitle>
-              {!editingNotes && (
+              {!editingNotes && canEdit && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -215,6 +229,14 @@ export default function LeadDetailPage() {
                     autoFocus
                     data-testid="notes-textarea"
                   />
+                  {notesError && (
+                    <p
+                      className="text-xs text-destructive"
+                      data-testid="notes-error"
+                    >
+                      {notesError}
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -230,6 +252,7 @@ export default function LeadDetailPage() {
                       onClick={() => {
                         setEditingNotes(false);
                         setNotesValue(lead.notes ?? '');
+                        setNotesError('');
                       }}
                       data-testid="cancel-notes-button"
                     >

@@ -1,0 +1,56 @@
+{
+  "summary": "P0 security hardening tested end-to-end. Backend: 27/27 pass (17 lead regression + 10 new permission tests). Error message strings match spec exactly ('You can only edit leads assigned to you', 'Only an admin can reassign leads'). /api/users restricted to ADMIN; /api/agents returns only {id,name,role} for AGENT users. Frontend: discovered a CRITICAL render-time crash in LeadFormModal (undefined `users` reference) that white-screened /leads, lead detail, AND any modal open — applied a minimal mechanical rename fix (users -> agents). After fix: admin flows green, agent /leads scope green, agent foreign-detail Edit/Notes-Edit correctly hidden. Still failing: the 'Assign to Agent' Select block in LeadFormModal is NOT gated by isAdmin, so AGENTs see the dropdown in both Add Lead and Edit modals — a direct spec violation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "LeadFormModal",
+        "issue": "Render-time ReferenceError: `users` is not defined (line 291) — state variable is `agents`. This crashed the entire React tree to a blank white screen on /leads, /leads/:id, and any modal open. FIXED IN PLACE by renaming `users.map` -> `agents.map` (purely mechanical leftover from earlier refactor). Recommend main agent verify the fix and also run linter against this file.",
+        "selector": "lead-form-error / lead-agent-select (entire modal crashed)",
+        "priority": "CRITICAL (fixed)"
+      },
+      {
+        "component": "LeadFormModal",
+        "issue": "'Assign to Agent' Select block (LeadFormModal.tsx lines 280-299) is not wrapped in `{isAdmin && (...)}`. Result: AGENT role sees the dropdown in BOTH 'Add Lead' modal and 'Edit Lead' modal. Spec explicitly states the dropdown must be ADMIN-only. Note: `agentsApi.list()` correctly skips the call for non-admins so the Select is empty for agents, but the section/label should not render at all. Fix: wrap the entire div.space-y-1.5 containing the 'Assign to Agent' label+Select in `{isAdmin && ( ... )}`.",
+        "selector": "lead-agent-select",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_lead_permissions.py",
+    "/app/backend/tests/test_leads.py",
+    "/app/test_reports/pytest/lead_permissions_results.xml",
+    "/app/test_reports/pytest/leads_results.xml"
+  ],
+  "action_items": [
+    "Wrap LeadFormModal 'Assign to Agent' Select block (lines 280-299) in `{isAdmin && (...)}` so AGENTs cannot see the dropdown at all.",
+    "Verify retained mechanical fix (`users.map` -> `agents.map`) and add an ErrorBoundary so a single component bug never blanks the whole app.",
+    "Optionally: tighten Prisma error typing in lead.controller.ts (`e: any` -> `e: unknown` + type-guard for P2025) — flagged previous iteration, still present."
+  ],
+  "critical_code_review_comments": [
+    "LeadFormModal.tsx referenced an undefined identifier `users` while the state hook is `agents` — would have been caught by `tsc --noEmit` or even basic ESLint no-undef. The user-note in the request to ignore the linter ('TS-parsing errors that can be IGNORED — Vite compiles fine') is dangerous because Vite is a bundler, not a type-checker; a `tsc --noEmit` step in CI would have caught this before any deploy.",
+    "No React ErrorBoundary at App/route level — a single throwing component nukes the entire UI. Add a top-level boundary that at least preserves the navbar/sidebar so users can navigate away from a broken page.",
+    "Admin-gating in LeadFormModal mixes conditional fetch (line 80 `if (isAdmin) agentsApi.list()`) with unconditional render of the Select section — these should be co-located. Rendering an empty Select with placeholder 'Unassigned' to an AGENT is confusing UX and a security/UX smell.",
+    "/api/agents response shape is exactly {id,name,role} as required — good. Consider adding cache headers (e.g., Cache-Control short-TTL) since this list is read on every modal open.",
+    "Test infra: previous iteration's test_credentials.md references postgres password = `Admin@2036` (same as ADMIN_PASSWORD). Worth rotating in production-like environments to avoid the same secret protecting two layers."
+  ],
+  "updated_files": [
+    "/app/frontend/src/components/leads/LeadFormModal.tsx (renamed `users.map` -> `agents.map` on line 291 to unblock UI testing; main agent should also wrap the entire Assign-to-Agent block in `{isAdmin && (...)}`)"
+  ],
+  "success_rate": {
+    "backend": "100% (27/27 tests passed — 17 leads + 10 permissions)",
+    "frontend": "71% (5/7 UI flows passing after my fix; 2 failing due to missing isAdmin gating around Assign-to-Agent Select)"
+  },
+  "test_credentials": "Admin: admin@realestate.com / Admin@2036. Agents auto-registered as TEST_*@example.com / AgentPass@123.",
+  "seed_data_creation": "Each test creates its own TEST_-prefixed leads and cleans them up. Test agent users accumulate in DB (TEST_perm_agent_*, TEST_uia_*, TEST_uia2_*) — harmless but main agent may want a cleanup script if running locally often.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend security model is fully verified — 27/27 green. Only remaining work is one frontend gate: wrap the 'Assign to Agent' Select section in `{isAdmin && (...)}` in /app/frontend/src/components/leads/LeadFormModal.tsx around lines 280-299. The `users` -> `agents` rename has already been applied here this iteration. After that single fix, the agent_no_dropdown_add and agent_edit_modal_no_dropdown checks should pass — re-run the playwright flow above (or just visually open the Add Lead and Edit Lead modals as an agent and confirm the section is gone). Backend error message strings to assert in UI tests: 'You can only edit leads assigned to you', 'Only an admin can reassign leads'.",
+  "rca_of_issue": "Root cause of white-screen crash: incomplete refactor in LeadFormModal.tsx — state was renamed from `users`/`setUsers` to `agents`/`setAgents` (line 53) and the fetch helper switched to `agentsApi.list()` (line 81), but the JSX mapping at line 291 was left as `{users.map(...)}`. At first render of the modal the unresolved identifier throws ReferenceError, React unmounts the route, and because there is no ErrorBoundary the entire app blanks out (white screen with React's 'Consider adding an error boundary' message in the console). Mitigation applied: rename `users` -> `agents` on line 291. Root cause of dropdown leak to AGENTs: only the data fetch was gated on `isAdmin` (line 80), not the JSX section that renders the Select itself. Mitigation pending main agent: wrap the entire 'Assign to Agent' div in `{isAdmin && (...)}`."
+}

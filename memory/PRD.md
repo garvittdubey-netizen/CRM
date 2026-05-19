@@ -61,6 +61,20 @@ Create a Real Estate CRM foundation with:
 - Supervisor: node_backend.conf added (port 8002)
 - EMERGENT_STATE.md created
 
+### Phase 2.1 — Security & Ownership Hardening (2026-05-19)
+**Backend**
+- `lead.controller.ts → editLead`: ADMIN bypasses checks; non-admins must own the lead (`assignedAgentId === userId`), else 403. Non-admins also cannot send a different `assignedAgentId` (returns 403 "Only an admin can reassign leads").
+- `users.routes.ts`: `GET /api/users` now wrapped in `requireRole('ADMIN')` — 403 for agents.
+- `agents.routes.ts` (new): `GET /api/agents` returns only `role=AGENT` users with `{id, name, role}`. No emails, no admins. Used as the dropdown data source.
+- Tests: `/app/backend/tests/test_lead_permissions.py` (10/10 passing). Original `test_leads.py` still 17/17.
+
+**Frontend**
+- `services/api.ts`: added `extractApiError()` helper for friendly 403/error messages; 401 interceptor unchanged.
+- `services/leads.ts`: added `agentsApi.list()` typed to `{id, name, role}[]`.
+- `LeadFormModal.tsx`: switched to `agentsApi`, dropdown rendered only for ADMIN, fully surfaces server-side errors.
+- `LeadDetailPage.tsx`: introduces `canEdit` flag, hides Edit button + notes Edit button when the agent isn't the assignee. Notes save now displays inline error on permission failure.
+- `LeadsPage.tsx`: delete failures surface via `window.alert` instead of being silently swallowed.
+
 ### Phase 2 — Lead Management (2026-05-19)
 **Backend**
 - `prisma/schema.prisma` — Lead model + LeadStatus enum (NEW/CONTACTED/QUALIFIED/NEGOTIATING/WON/LOST)
@@ -93,11 +107,9 @@ Create a Real Estate CRM foundation with:
 
 ### P1 — Important (Phase 4)
 - Dashboard stats API connection
-- User management page (Admin) — backend GET /api/users exists
+- User management page (Admin) — backend `GET /api/users` (admin-only) exists
 - Reports page (Admin)
 - Mobile sidebar drawer (Sheet component)
-- Decide: AGENT edit scope on PUT /api/leads/:id (currently un-scoped)
-- Decide: GET /api/users access tightening (currently any authenticated user)
 
 ### P2 — Nice to Have (Phase 5)
 - Export leads (CSV/PDF)

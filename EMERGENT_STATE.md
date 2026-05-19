@@ -211,16 +211,25 @@ GET    /api/leads                  — list leads (paginated, filterable)
 
 POST   /api/leads                  — create lead (fullName required)
 GET    /api/leads/:id              — get one lead (includes assignedAgent)
-PUT    /api/leads/:id              — partial update (any subset of fields)
+PUT    /api/leads/:id              — partial update
+                                     • ADMIN can edit any lead
+                                     • AGENT can edit only leads assigned to themselves
+                                       (403 on unassigned or another agent's lead)
+                                     • AGENT cannot change assignedAgentId via PUT
 DELETE /api/leads/:id              — ADMIN only
 PATCH  /api/leads/:id/assign       — ADMIN only, body: { agentId: string | null }
 ```
 
-### Users
+### Users / Agents
 
 ```
-GET    /api/users   — list all users (for agent-assignment dropdown)
-                      select: { id, name, email, role }
+GET    /api/users    — ADMIN only. Full user listing { id, name, email, role }.
+                       Restricted so agent accounts cannot harvest admin emails.
+
+GET    /api/agents   — Authenticated. Minimal agent directory used by the
+                       assignment dropdown. Returns only role=AGENT users with
+                       { id, name, role } — emails and admin accounts are never
+                       exposed via this endpoint.
 ```
 
 ---
@@ -324,8 +333,8 @@ For production deployment:
 
 ### Open Decisions (from Lead module review)
 
-- [ ] **AGENT edit scope**: Currently AGENTs can `PUT /api/leads/:id` on ANY lead (only DELETE/ASSIGN are admin-gated). Confirm with product whether AGENT edits should be restricted to their own assigned leads.
-- [ ] **GET /api/users exposure**: Endpoint returns ALL users (admins + agents) to any authenticated user. Consider restricting to ADMIN role or returning only AGENTs since the only consumer is the agent-assignment dropdown.
+- ~~AGENT edit scope~~ ✅ **Resolved** (2026-05-19): AGENTs can now only PUT leads assigned to themselves; admin-only via `PATCH /:id/assign` for reassignment.
+- ~~`GET /api/users` exposure~~ ✅ **Resolved** (2026-05-19): Restricted to ADMIN. New `GET /api/agents` (id, name, role only) added for the assignment dropdown — admin accounts are never exposed via this endpoint.
 
 ### Important Notes for Next Agent
 
@@ -346,6 +355,9 @@ For production deployment:
 
 - [x] api.ts 401 interceptor now excludes `/auth/login` and `/auth/register` from redirect — login error messages display correctly
 - [x] Lead Management module wired into App router and Sidebar navigation (Phase 2)
+- [x] **Lead ownership rules enforced (Phase 2.1, 2026-05-19)**: AGENTs can only edit leads assigned to themselves; cannot edit unassigned or others' leads; cannot reassign via PUT.
+- [x] **`GET /api/users` locked down to ADMIN (Phase 2.1)** — added `GET /api/agents` returning minimal `{id, name, role}` for any authenticated user (used by the lead-assignment dropdown). Admin accounts are no longer exposed to agents.
+- [x] **Frontend permission handling**: `extractApiError()` helper surfaces server-side 403 messages on the form, notes editor, and delete confirmation. Edit button hidden on `/leads/:id` when the current user cannot edit. The agent-assignment dropdown is admin-only in the form.
 
 ---
 

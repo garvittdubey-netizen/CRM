@@ -19,8 +19,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TagInput } from './TagInput';
-import { leadsApi, usersApi } from '@/services/leads';
-import type { Lead, CreateLeadData, LeadStatus, User } from '@/types';
+import { leadsApi, agentsApi, type AgentOption } from '@/services/leads';
+import { extractApiError } from '@/services/api';
+import { useAuth } from '@/hooks/useAuth';
+import type { Lead, CreateLeadData, LeadStatus } from '@/types';
 
 interface Props {
   open: boolean;
@@ -45,8 +47,10 @@ const EMPTY: CreateLeadData = {
 
 export function LeadFormModal({ open, onClose, onSuccess, lead }: Props) {
   const isEdit = !!lead;
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [form, setForm] = useState<CreateLeadData>(EMPTY);
-  const [users, setUsers] = useState<User[]>([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -72,8 +76,11 @@ export function LeadFormModal({ open, onClose, onSuccess, lead }: Props) {
       setForm(EMPTY);
     }
 
-    usersApi.list().then(setUsers).catch(() => {});
-  }, [open, lead]);
+    // Only admins manage agent assignment; skip the call otherwise.
+    if (isAdmin) {
+      agentsApi.list().then(setAgents).catch(() => setAgents([]));
+    }
+  }, [open, lead, isAdmin]);
 
   const set = <K extends keyof CreateLeadData>(key: K) =>
     (value: CreateLeadData[K]) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -106,8 +113,7 @@ export function LeadFormModal({ open, onClose, onSuccess, lead }: Props) {
       onSuccess();
       onClose();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Failed to save lead. Please try again.');
+      setError(extractApiError(e, 'Failed to save lead. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -282,7 +288,7 @@ export function LeadFormModal({ open, onClose, onSuccess, lead }: Props) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="NONE">Unassigned</SelectItem>
-                {users.map((u) => (
+                {agents.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.name}
                     {u.role === 'ADMIN' ? ' (Admin)' : ''}

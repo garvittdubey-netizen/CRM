@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/leads/StatusBadge';
 import { LeadFormModal } from '@/components/leads/LeadFormModal';
 import { leadsApi } from '@/services/leads';
+import { extractApiError } from '@/services/api';
 import type { Lead, LeadsResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -70,8 +71,8 @@ export default function LeadsPage() {
     try {
       await leadsApi.delete(lead.id);
       fetchLeads();
-    } catch {
-      /* handled silently */
+    } catch (e) {
+      window.alert(extractApiError(e, 'Failed to delete lead.'));
     }
   };
 

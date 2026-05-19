@@ -4,6 +4,7 @@ import cors from 'cors';
 import { authRouter } from './routes/auth.routes';
 import { leadRouter } from './routes/lead.routes';
 import { usersRouter } from './routes/users.routes';
+import { agentsRouter } from './routes/agents.routes';
 import { prisma } from './lib/prisma';
 import { seedAdmin } from './scripts/seed';
 
@@ -42,6 +43,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/leads', leadRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/agents', agentsRouter);
 
 // 404 handler
 app.use((_req, res) => {
