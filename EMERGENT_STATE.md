@@ -25,8 +25,8 @@
 
 ### Completed Features
 - [x] Project structure (backend + frontend)
-- [x] PostgreSQL database setup (localhost:5432/real_estate_crm)
-- [x] Prisma schema + initial migration (`20260519110814_init`)
+- [x] PostgreSQL database setup (localhost:5432/real_estate_crm) — **local DB, no Emergent-managed deps**
+- [x] Prisma schema + migrations (`20260519110814_init`, `20260519113134_add_lead_model`)
 - [x] Admin user auto-seeded on startup
 - [x] JWT authentication (login, register, logout, /me)
 - [x] Login page (split-screen, professional design)
@@ -36,18 +36,23 @@
 - [x] Dashboard page structure (stats cards, placeholders)
 - [x] Dark/Light mode auto-toggle (next-themes)
 - [x] Shadcn UI components (Button, Card, Input, Label, Badge, etc.)
+- [x] **Lead Management module (CRUD + search + filters + pagination + agent assignment + tags + notes)**
+  - Backend: `/api/leads` (GET/POST), `/api/leads/:id` (GET/PUT/DELETE), `/api/leads/:id/assign` (PATCH)
+  - Frontend: `LeadsPage`, `LeadDetailPage`, `LeadFormModal`, `StatusBadge`, `TagInput`
+  - Role rules: ADMIN sees all; AGENT sees only own assigned leads; DELETE + ASSIGN restricted to ADMIN
+  - Tested: 17/17 backend + 13/13 frontend E2E (iteration_2.json)
 
 ### Pending Features
 - [ ] Properties module (listing, CRUD)
 - [ ] Clients module
 - [ ] Deals module
 - [ ] Reports (Admin only)
-- [ ] User management (Admin only)
+- [ ] User management page (Admin only)
 - [ ] Settings page
 - [ ] Mobile sidebar (Sheet/Drawer)
 
 ### Current Phase
-**Phase 1: Foundation** — COMPLETE
+**Phase 2: Lead Management** — COMPLETE
 
 ---
 
@@ -65,10 +70,33 @@
 | role      | Role     | ADMIN \| AGENT     |
 | createdAt | DateTime | default: now()     |
 | updatedAt | DateTime | auto-updated       |
+| leads     | Lead[]   | relation: AssignedAgent |
+
+**Model: Lead**
+| Field             | Type       | Notes                                       |
+|-------------------|------------|---------------------------------------------|
+| id                | String     | cuid(), PK                                  |
+| fullName          | String     | required                                    |
+| phone             | String?    | optional                                    |
+| email             | String?    | optional                                    |
+| budget            | Decimal?   | @db.Decimal(15, 2), serialized as number    |
+| preferredLocation | String?    | optional                                    |
+| bhk               | String?    | e.g. "2BHK", "3BHK"                         |
+| propertyType      | String?    | Apartment / Villa / Plot / Commercial       |
+| status            | LeadStatus | default: NEW                                |
+| tags              | String[]   | Postgres text[]                             |
+| notes             | String?    | @db.Text                                    |
+| assignedAgentId   | String?    | FK → users.id                               |
+| assignedAgent     | User?      | relation: AssignedAgent                     |
+| createdAt         | DateTime   | default: now()                              |
+| updatedAt         | DateTime   | auto-updated                                |
 
 **Enum: Role**
 - `ADMIN` — Full access, user management, reports
 - `AGENT` — Standard CRM access
+
+**Enum: LeadStatus**
+- `NEW` (default) → `CONTACTED` → `QUALIFIED` → `NEGOTIATING` → `WON` / `LOST`
 
 ### Database Connection
 
@@ -172,6 +200,29 @@ POST /api/auth/logout    — Authorization: Bearer <token> → { message }
 GET  /api/health         — { status, service, timestamp }
 ```
 
+### Leads (all require JWT)
+
+```
+GET    /api/leads                  — list leads (paginated, filterable)
+       Query params: page, limit (max 100), search, status, propertyType,
+                     bhk, assignedAgentId, sortBy, sortOrder
+       Response: { leads: Lead[], total, page, limit, pages }
+       Role rule: AGENT sees only own assigned leads; ADMIN sees all.
+
+POST   /api/leads                  — create lead (fullName required)
+GET    /api/leads/:id              — get one lead (includes assignedAgent)
+PUT    /api/leads/:id              — partial update (any subset of fields)
+DELETE /api/leads/:id              — ADMIN only
+PATCH  /api/leads/:id/assign       — ADMIN only, body: { agentId: string | null }
+```
+
+### Users
+
+```
+GET    /api/users   — list all users (for agent-assignment dropdown)
+                      select: { id, name, email, role }
+```
+
 ---
 
 ## Architecture Notes
@@ -247,7 +298,7 @@ For production deployment:
 
 ## Next Agent Instructions
 
-### Immediate Next Steps (Phase 2)
+### Immediate Next Steps (Phase 3)
 
 1. **Properties Module** (`/app/backend/src/routes/properties.routes.ts`)
    - Prisma model: Property (id, title, price, address, type, status, agentId, createdAt)
@@ -262,15 +313,19 @@ For production deployment:
 3. **Deals Module**
    - Prisma model: Deal (id, propertyId, clientId, agentId, amount, status, createdAt)
 
-4. **User Management** (Admin only)
-   - GET /api/users — list all users
+4. **User Management page** (Admin only) — backend GET /api/users already exists
    - POST /api/users — create agent
    - PUT /api/users/:id — update role
    - DELETE /api/users/:id
 
 5. **Connect Dashboard Stats**
-   - Update DashboardPage.tsx to fetch real counts from API
+   - Update DashboardPage.tsx to fetch real counts (leads/properties/clients/deals)
    - Add API endpoints: GET /api/dashboard/stats
+
+### Open Decisions (from Lead module review)
+
+- [ ] **AGENT edit scope**: Currently AGENTs can `PUT /api/leads/:id` on ANY lead (only DELETE/ASSIGN are admin-gated). Confirm with product whether AGENT edits should be restricted to their own assigned leads.
+- [ ] **GET /api/users exposure**: Endpoint returns ALL users (admins + agents) to any authenticated user. Consider restricting to ADMIN role or returning only AGENTs since the only consumer is the agent-assignment dropdown.
 
 ### Important Notes for Next Agent
 
@@ -290,6 +345,7 @@ For production deployment:
 ### Fixed Issues
 
 - [x] api.ts 401 interceptor now excludes `/auth/login` and `/auth/register` from redirect — login error messages display correctly
+- [x] Lead Management module wired into App router and Sidebar navigation (Phase 2)
 
 ---
 

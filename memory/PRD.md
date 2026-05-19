@@ -31,7 +31,8 @@ Create a Real Estate CRM foundation with:
 
 ## What's Been Implemented (2026-05-19)
 
-### Backend (Node.js/Express/Prisma)
+### Phase 1 — Foundation
+**Backend (Node.js/Express/Prisma)**
 - `src/index.ts` - Express app setup, CORS, routes
 - `src/routes/auth.routes.ts` - Auth endpoints
 - `src/controllers/auth.controller.ts` - Request handling
@@ -42,7 +43,7 @@ Create a Real Estate CRM foundation with:
 - `prisma/schema.prisma` - User model + Role enum
 - Initial migration: 20260519110814_init
 
-### Frontend (React/Vite/TypeScript)
+**Frontend (React/Vite/TypeScript)**
 - `src/App.tsx` - Route structure
 - `src/pages/LoginPage.tsx` - Split-screen login
 - `src/pages/DashboardPage.tsx` - Stats cards + layout
@@ -55,39 +56,65 @@ Create a Real Estate CRM foundation with:
 - `src/services/api.ts` - Axios instance + interceptors
 - Shadcn UI: Button, Card, Input, Label, Badge, Avatar, etc.
 
-### Infrastructure
-- PostgreSQL 15 installed and running
-- Database: real_estate_crm
-- Supervisor: node_backend.conf added
+**Infrastructure**
+- PostgreSQL 15 installed locally (localhost:5432/real_estate_crm) — owned by `postgres`, NOT Emergent-managed
+- Supervisor: node_backend.conf added (port 8002)
 - EMERGENT_STATE.md created
+
+### Phase 2 — Lead Management (2026-05-19)
+**Backend**
+- `prisma/schema.prisma` — Lead model + LeadStatus enum (NEW/CONTACTED/QUALIFIED/NEGOTIATING/WON/LOST)
+- Migration: 20260519113134_add_lead_model
+- `src/routes/lead.routes.ts` — full CRUD + PATCH /:id/assign (admin-only on delete & assign)
+- `src/controllers/lead.controller.ts` — validation, error handling (P2025)
+- `src/services/lead.service.ts` — search across fullName/phone/email/preferredLocation, filter by status/propertyType/bhk/assignedAgentId, pagination, sort. AGENT role scoped to own leads.
+- `src/routes/users.routes.ts` — GET /api/users for assignment dropdown
+- Decimal budget serialized as plain number for JSON
+
+**Frontend**
+- `src/pages/LeadsPage.tsx` — table, search (debounced), filters (status/property), pagination, role-aware delete
+- `src/pages/LeadDetailPage.tsx` — contact/property/notes/tags/agent/status sections + inline notes editor
+- `src/components/leads/LeadFormModal.tsx` — add & edit form
+- `src/components/leads/StatusBadge.tsx`, `TagInput.tsx`
+- `src/services/leads.ts` — typed API client
+- `src/types/index.ts` — Lead, LeadsResponse, CreateLeadData, UpdateLeadData
+- App.tsx wired: `/leads`, `/leads/:id` under ProtectedRoute + MainLayout
+- Sidebar wired: "Leads" nav item with UserPlus icon
+
+**Testing**: 17/17 backend pytest + 13/13 frontend E2E passed — `/app/test_reports/iteration_2.json`
+**Regression suite**: `/app/backend/tests/test_leads.py`
 
 ## Prioritized Backlog
 
-### P0 — Must Have (Phase 2)
+### P0 — Must Have (Phase 3)
 - Properties module (CRUD)
 - Clients module (CRUD)
 - Deals module (CRUD)
 
-### P1 — Important (Phase 3)
+### P1 — Important (Phase 4)
 - Dashboard stats API connection
-- User management (Admin)
+- User management page (Admin) — backend GET /api/users exists
 - Reports page (Admin)
-- Mobile sidebar drawer
+- Mobile sidebar drawer (Sheet component)
+- Decide: AGENT edit scope on PUT /api/leads/:id (currently un-scoped)
+- Decide: GET /api/users access tightening (currently any authenticated user)
 
-### P2 — Nice to Have (Phase 4)
-- Search and filtering
-- Export (CSV/PDF)
-- Email notifications
-- Activity log
-- File attachments (property photos)
+### P2 — Nice to Have (Phase 5)
+- Export leads (CSV/PDF)
+- Email/WhatsApp notifications on lead status change
+- Activity log / audit trail per lead
+- File attachments (property photos, lead documents)
+- Bulk import leads (CSV)
+- Saved filter presets
 
 ## User Personas
-- **Admin**: Manager overseeing all agents, properties, reports
-- **Agent**: Day-to-day user managing their assigned properties and clients
+- **Admin**: Manager overseeing all agents, leads, properties, reports
+- **Agent**: Day-to-day user managing their assigned leads, properties, clients
 
 ## Next Tasks
-1. Build Properties module (Prisma model + API + UI)
-2. Build Clients module
-3. Build Deals module
-4. Connect dashboard stats to real API data
+1. Properties module (Prisma model + API + UI)
+2. Clients module
+3. Deals module
+4. Connect dashboard stats to real API data (lead counts by status)
 5. Implement mobile sidebar with Sheet component
+6. Resolve open Lead module decisions (AGENT edit scope, /api/users access)
