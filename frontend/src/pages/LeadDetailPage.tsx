@@ -12,6 +12,8 @@ import {
   DollarSign,
   UserCircle,
   Calendar,
+  MessageSquare,
+  PhoneCall,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,7 @@ import { leadsApi } from '@/services/leads';
 import { extractApiError } from '@/services/api';
 import { LeadTimeline } from '@/components/followups/LeadTimeline';
 import { CommunicationTimeline } from '@/components/communications/CommunicationTimeline';
+import { CallLogModal } from '@/components/communications/CallLogModal';
 import type { Lead } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -50,6 +53,7 @@ export default function LeadDetailPage() {
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [callLogOpen, setCallLogOpen] = useState(false);
 
   // Notes state
   const [editingNotes, setEditingNotes] = useState(false);
@@ -142,6 +146,29 @@ export default function LeadDetailPage() {
 
         <div className="flex items-center gap-2">
           <StatusBadge status={lead.status} showDot />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/communications?leadId=${lead.id}`)}
+            disabled={!lead.phone}
+            data-testid="lead-message-button"
+            title={lead.phone ? 'Open WhatsApp chat' : 'No phone on file'}
+            className="text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+          >
+            <MessageSquare size={13} className="mr-1.5" />
+            Message
+          </Button>
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCallLogOpen(true)}
+              data-testid="lead-call-button"
+            >
+              <PhoneCall size={13} className="mr-1.5" />
+              Log call
+            </Button>
+          )}
           {canEdit && (
             <Button
               variant="outline"
@@ -374,6 +401,13 @@ export default function LeadDetailPage() {
         lead={lead}
         onClose={() => setEditOpen(false)}
         onSuccess={() => { fetchLead(); setEditOpen(false); }}
+      />
+
+      <CallLogModal
+        open={callLogOpen}
+        onClose={() => setCallLogOpen(false)}
+        lead={{ id: lead.id, fullName: lead.fullName, phone: lead.phone }}
+        onSuccess={() => setCallLogOpen(false)}
       />
     </div>
   );

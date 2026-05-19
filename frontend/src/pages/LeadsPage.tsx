@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Pencil, Trash2, UserCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, Trash2, UserCircle, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -186,6 +186,7 @@ export default function LeadsPage() {
                         onView={() => navigate(`/leads/${lead.id}`)}
                         onEdit={() => setEditLead(lead)}
                         onDelete={() => handleDelete(lead)}
+                        onMessage={() => navigate(`/communications?leadId=${lead.id}`)}
                       />
                     ))}
                   </tbody>
@@ -226,12 +227,14 @@ function LeadTableRow({
   onView,
   onEdit,
   onDelete,
+  onMessage,
 }: {
   lead: Lead;
   isAdmin: boolean;
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onMessage: () => void;
 }) {
   return (
     <tr
@@ -316,6 +319,17 @@ function LeadTableRow({
       {/* Actions */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-30"
+            onClick={onMessage}
+            disabled={!lead.phone}
+            data-testid={`message-lead-${lead.id}`}
+            title={lead.phone ? 'Open WhatsApp chat' : 'No phone on file'}
+          >
+            <MessageSquare size={13} />
+          </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onView} data-testid={`view-lead-${lead.id}`}>
             <Eye size={13} />
           </Button>
