@@ -216,6 +216,34 @@
     - Width transition, tooltips, persistence, expanded-state styling, mobile drawer — all untouched.
   - **Verified** via screenshots in both light + dark themes with the sidebar collapsed: icons clearly visible in both modes; active route (Leads) keeps its primary-tint pill in collapsed light theme.
 
+**Phase 6.2: Collapsed Sidebar Icon Visibility — REAL Root-Cause Fix** — COMPLETE & VERIFIED (2026-05-19)
+  - **Pure CSS/TSX patch** to `/app/frontend/src/components/layout/Sidebar.tsx` only. No backend, no auth, no leads, no follow-ups, no communication, no WhatsApp, no analytics, no CSV, no users, no DB, no architecture changes.
+  - **Why Phase 6.1 looked verified but wasn't actually fixing the bug**: Phase 6.1's screenshot verification was eyeballed in a state where the visible icons happened to be the active item's icon (white-on-navy pill) — which always rendered because the active pill is a separate, statically-classed element. The INACTIVE icons looked passable in screenshots taken at low zoom, but in production they were rendering with the inherited default colour (≈ `--primary-foreground` cascading down from the active highlight context, which resolves to near-white in light theme → invisible on the white card).
+  - **Actual root cause discovered by DOM inspection** (`getComputedStyle` + reading the raw `class` attribute):
+    - `SidebarNavItem` in collapsed mode wraps `<NavLink className={fn}>` inside `<TooltipTrigger asChild>`.
+    - Radix's `Slot` (powering `asChild`) merges props from parent → child. For the `className` prop it does a string-concat merge: `[parentClass, childClass].filter(Boolean).join(' ')`.
+    - When `childClass` is a FUNCTION (react-router's `NavLink` accepts `className: string | ((args) => string)`), the string-concat call coerces the function to a string via `Function.prototype.toString()`. So the `<a>` element ended up with `class="({ isActive }) => cn(\n    \"group flex items-center ...\")"` — the function's SOURCE CODE as the literal class attribute.
+    - NavLink internally then sees `typeof className === 'string'` (since Slot already stringified it before NavLink could call it) and takes the `else` branch — it never invokes the function. Result: **none of the Tailwind classes ever applied** in collapsed mode — neither the active highlight `bg-primary text-primary-foreground`, nor the inactive `text-foreground`, nor the hover state. The icons were styled only by inherited colour from the document tree, which in light theme cascaded to near-white → effectively invisible.
+    - Verified by reading `link.getAttribute('class')` on every NavLink in the collapsed sidebar — every one of them had the function source code as its class string.
+  - **Fix**:
+    - Resolve `isActive` ourselves inside `SidebarNavItem` using react-router's `useResolvedPath(item.href)` + `useMatch({ path, end: false })` hooks.
+    - Pass a plain STRING className (computed via `cn(...)`) to `<NavLink>` instead of a function. This sidesteps Slot's stringification entirely — the `class` attribute now contains real Tailwind utilities and the browser applies them as expected.
+    - Collapsed inactive icons use the solid `text-foreground` token (`hsl(222 47% 11%)` in light → near-black on white card; `hsl(210 40% 98%)` in dark → near-white on dark card). Expanded mode keeps `text-muted-foreground` because the label itself carries the colour weight.
+    - Replaced the leftover `text-foreground/75` on `logout-button-collapsed` with `text-foreground` for the same reason (the Tailwind config defines `foreground: 'hsl(var(--foreground))'` without an `<alpha-value>` placeholder, so the `/75` opacity modifier does not compose correctly anyway).
+  - **Preserved**:
+    - Active-item highlight (`bg-primary text-primary-foreground`) — verified pill renders with navy `rgb(29, 57, 93)` bg in light, blue `rgb(60, 131, 246)` bg in dark, with light text in both cases.
+    - Hover behaviour (`hover:bg-accent hover:text-accent-foreground`) — verified `bg rgb(241, 245, 249)` accent on hover, `text-foreground` colour retained.
+    - Width transition, Radix tooltips appearing on hover ("Leads" / "Expand" / "Logout"), localStorage persistence, expanded-state styling, mobile drawer (`MobileSidebar.tsx`), DOM `data-testid`s, `data-collapsed` attribute — all untouched.
+    - `useMatch({ end: false })` mirrors react-router's default NavLink matching for the existing routes (`/leads`, `/leads/:id` both highlight Leads; `/communications?leadId=` highlights Communications) — no behavioural change.
+  - **Verified** via `getComputedStyle` + screenshots:
+    - LIGHT collapsed: Dashboard (active) `color rgb(248,250,252)` on `bg rgb(29,57,93)`; all 10 inactive nav items `color rgb(15,23,41)` on transparent — strong contrast on the white card.
+    - DARK collapsed: Dashboard (active) `color rgb(15,23,41)` on `bg rgb(60,131,246)`; all 10 inactive nav items `color rgb(248,250,252)` on transparent — strong contrast on the dark card.
+    - Hover on inactive (light): `bg rgb(241,245,249)` accent + `color rgb(15,23,41)` text.
+    - Tooltips fire on hover in collapsed mode (verified "Leads" tooltip rendered next to the second icon in screenshot).
+    - Expanded sidebar regression check: 1440-wide screenshot shows all 11 nav labels in dark legible text, Dashboard active pill correct.
+  - **Files modified (this phase)**: `frontend/src/components/layout/Sidebar.tsx` only.
+  - **Files NOT touched**: backend (any), Prisma, auth, leads, follow-ups, communications, WhatsApp, analytics, CSV, users, MainLayout, MobileSidebar, Navbar, nav-items, index.css, tailwind.config.ts.
+
 **Phase 7.0: Lead Pipeline (Kanban Board)** — COMPLETE & VERIFIED (2026-05-19, iteration_11.json)
   - **Pure frontend iteration** — zero backend changes; status updates reuse the existing `PUT /api/leads/:id` endpoint (which already permits an `AGENT` to update leads assigned to them, and an `ADMIN` to update any lead). RBAC is inherited automatically.
   - **New route `/pipeline`** (no role guard — both ADMIN and AGENT see it; AGENT is naturally scoped to own leads because the underlying `/api/leads` is RBAC-scoped). Sidebar nav item **Pipeline** with `Kanban` icon, inserted between **Leads** and **Follow-ups** in the shared `nav-items.ts` (so both desktop Sidebar and MobileSidebar pick it up automatically).

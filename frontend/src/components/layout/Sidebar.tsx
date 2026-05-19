@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useMatch, useNavigate, useResolvedPath } from 'react-router-dom';
 import { Building2, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -89,7 +89,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   variant="ghost"
                   size="icon"
                   onClick={onToggle}
-                  className="h-8 w-full text-foreground/75 hover:text-foreground"
+                  className="h-8 w-full text-foreground hover:text-foreground"
                   data-testid="sidebar-toggle"
                   aria-label="Expand sidebar"
                 >
@@ -146,7 +146,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   variant="ghost"
                   size="icon"
                   onClick={handleLogout}
-                  className="w-full h-9 text-foreground/75 hover:text-destructive"
+                  className="w-full h-9 text-foreground hover:text-destructive"
                   data-testid="logout-button-collapsed"
                   aria-label="Log out"
                 >
@@ -165,25 +165,35 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 function SidebarNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   const Icon = item.icon;
 
-  const linkClass = ({ isActive }: { isActive: boolean }) =>
-    cn(
-      'group flex items-center rounded-md text-sm font-medium transition-colors whitespace-nowrap',
-      'hover:bg-accent hover:text-accent-foreground',
-      isActive
-        ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
-        // In collapsed mode there's no label to give the icon visual weight, so we
-        // upgrade inactive icons from `text-muted-foreground` (≈47% lightness in
-        // light theme — barely visible on the white card) to `text-foreground/75`,
-        // which renders as a readable near-black in light mode and a soft near-white
-        // in dark mode. Expanded mode keeps the original muted tone since the label
-        // already carries the colour.
-        : collapsed
-        ? 'text-foreground/75'
-        : 'text-muted-foreground',
-      // Fixed paddings per mode prevent any width-jump during the
-      // outer aside's width animation.
-      collapsed ? 'justify-center px-0 h-10 w-10 mx-auto' : 'gap-3 px-3 py-2.5',
-    );
+  // Compute `isActive` externally instead of passing a className FUNCTION to
+  // NavLink. When a NavLink with a function-className is wrapped in
+  // `<TooltipTrigger asChild>` (collapsed mode), Radix's Slot merges props by
+  // string-concatenating `className`, which calls `.toString()` on the function
+  // and turns its source code into a literal class attribute. The result:
+  // NavLink sees a string (not a function), never invokes it, and NONE of the
+  // Tailwind classes apply in collapsed mode — neither the active highlight
+  // nor the icon colour. Resolving isActive ourselves and passing a plain
+  // STRING className sidesteps the Slot/function bug entirely.
+  const resolved = useResolvedPath(item.href);
+  const isActive = useMatch({ path: resolved.pathname, end: false }) != null;
+
+  const linkClass = cn(
+    'group flex items-center rounded-md text-sm font-medium transition-colors whitespace-nowrap',
+    'hover:bg-accent hover:text-accent-foreground',
+    isActive
+      ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
+      // In collapsed mode there's no label to give the icon visual weight, so
+      // inactive icons use the solid `text-foreground` token (≈11% lightness
+      // in light theme → near-black on the white card; ≈98% lightness in dark
+      // theme → near-white on the dark card). Expanded mode keeps the original
+      // muted tone since the label itself carries the colour.
+      : collapsed
+      ? 'text-foreground'
+      : 'text-muted-foreground',
+    // Fixed paddings per mode prevent any width-jump during the
+    // outer aside's width animation.
+    collapsed ? 'justify-center px-0 h-10 w-10 mx-auto' : 'gap-3 px-3 py-2.5',
+  );
 
   // Collapsed: wrap in tooltip; Expanded: plain link.
   if (collapsed) {
