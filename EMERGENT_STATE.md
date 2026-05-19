@@ -201,7 +201,51 @@
   - **Responsive behaviour confirmed** (verified at 390×844 mobile + 1440×900 desktop):
     - Mobile: desktop sidebar `display:none`, hamburger visible, drawer mounts on tap, every nav item closes drawer on click, body has **0px** horizontal overflow on `/dashboard` and `/leads`, grids collapse to 1-col (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`), leads table scrolls horizontally inside its `overflow-x-auto` wrapper.
     - Desktop: toggle flips `data-collapsed` and width 260↔68 within 300ms; `<main>` widens by 192px to match the delta; tooltips appear when hovering collapsed nav items; active route highlight persists in collapsed mode; reload preserves the chosen state (localStorage round-trip verified).
-  - **Tested**: 17/17 Phase 6 scenarios + 8/8 regression scenarios → 100% pass (`/app/test_reports/iteration_10.json`). Zero blocking issues; pre-existing TS warnings in `LeadDetailPage.tsx` + `services/api.ts` flagged for a future cleanup (not introduced this iteration).
+  - **Tested**: 17/17 Phase 6 scenarios + 8/8 regression scenarios → 100% pass (`/app/test_reports/iteration_10.json`).
+
+**Phase 7.0: Lead Pipeline (Kanban Board)** — COMPLETE & VERIFIED (2026-05-19, iteration_11.json)
+  - **Pure frontend iteration** — zero backend changes; status updates reuse the existing `PUT /api/leads/:id` endpoint (which already permits an `AGENT` to update leads assigned to them, and an `ADMIN` to update any lead). RBAC is inherited automatically.
+  - **New route `/pipeline`** (no role guard — both ADMIN and AGENT see it; AGENT is naturally scoped to own leads because the underlying `/api/leads` is RBAC-scoped). Sidebar nav item **Pipeline** with `Kanban` icon, inserted between **Leads** and **Follow-ups** in the shared `nav-items.ts` (so both desktop Sidebar and MobileSidebar pick it up automatically).
+  - **Drag-and-drop library**: `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` (added via `yarn add`). Works on pointer + keyboard + touch out of the box; ~10KB gz.
+  - **Six columns following the existing enum** (column label "Negotiating" for `NEGOTIATING` per spec):
+    - `NEW` → "New" (blue accent)
+    - `CONTACTED` → "Contacted" (amber)
+    - `QUALIFIED` → "Qualified" (violet)
+    - `NEGOTIATING` → "Negotiating" (orange)
+    - `WON` → "Won" (emerald)
+    - `LOST` → "Lost" (slate)
+    - Each column shows a count chip (`pipeline-count-{status}`) in the header.
+  - **Lead card** (`pipeline-card-{leadId}`) shows:
+    - `GripVertical` drag handle (the ONLY drag-initiator; clicking the card body navigates to `/leads/:id`).
+    - Full name + truncated `title` for overflow.
+    - Source badge with compact labels (Facebook, WhatsApp, Website, Referral, Manual, Portal, Other).
+    - Phone with `Phone` icon (skipped if null).
+    - Footer: assigned-agent initials avatar + first name (or "Unassigned" italic) + `ReminderBadge` for the soonest PENDING follow-up (Today / Overdue / Pending) — pre-sorted by `followUpDate` ascending so the FIRST entry in a leadId → followUp Map is the soonest.
+  - **Drop zone UX**:
+    - `useDroppable` per column; while a card is being dragged, the target column gains `ring-2 ring-primary/30` + `bg-primary/5` tint via `isOver`.
+    - Inactive columns get a subtle `bg-muted/20` wash to make the target stand out.
+    - `DragOverlay` ghost card has `shadow-2xl ring-2 ring-primary/30 rotate-1` for a tactile "lift" feel.
+    - Empty columns show "Drop here" while a drag is in progress (otherwise "No leads").
+  - **Optimistic update + rollback**:
+    - On drop, the card moves locally immediately.
+    - `leadsApi.update(id, { status })` fires.
+    - On success, the server payload reconciles `assignedAgent` / `updatedAt`.
+    - On failure (e.g. AGENT dropping a lead they don't own), the card snaps back to its original column and a `window.alert` surfaces the error.
+  - **URL-backed filters** (`?search=&agent=&source=` is the single source of truth — shareable links + browser back/forward work):
+    - `pipeline-search-input` — name/phone/email (case-insensitive substring).
+    - `pipeline-agent-filter` — populates from `agentsApi.list()`, all agents + "All agents".
+    - `pipeline-source-filter` — all 7 `LeadSource` values + "All sources".
+    - `pipeline-clear-filters` — single-click reset; only visible when any filter is active.
+    - Status is implicit (each column owns its status), so no status filter is exposed here.
+  - **Responsive layout**:
+    - `pipeline-board` is `flex gap-3 overflow-x-auto` with each column at fixed `w-[280px] sm:w-[300px] shrink-0`. Below `md` the board scrolls horizontally without breaking layout; the filter row uses `flex-wrap`.
+    - Card grip icon is touch-friendly (full p-1 hit area).
+  - **Mobile drawer + desktop sidebar both expose `nav-pipeline` / `mobile-nav-pipeline` automatically** via the shared nav source.
+  - **Tested**: 100% pass on `/app/test_reports/iteration_11.json`. Verified: admin + agent login, both roles access `/pipeline` (AGENT scoped to own leads — 2 cards visible vs 9 for ADMIN), all 6 columns render with counts (NEW:2, CONTACTED:3, QUALIFIED:2, NEGOTIATING:1, WON:1, LOST:0 in fresh fixture), card content (name + source badge + phone + agent avatar + follow-up reminder badge), card-click navigates to `/leads/:id` while grip handle does NOT, drag handle → drop fires PUT 200 with counts updating optimistically (NEW 2→1, CONTACTED 3→4), URL state syncs on filter changes + refresh restores, clear-filters resets, drop-zone highlight wiring, DragOverlay ghost, mobile 390×844 board scroll, sidebar order, mobile drawer order.
+  - **Known soft notes** (not blocking, captured for backlog):
+    - Source badge says "Portal" while the dropdown shows "Property Portal" — intentional for badge compactness.
+    - `window.alert` used for rollback notification; can be upgraded to sonner/toast later.
+    - 500-lead fetch is unpaginated — fine for current scale, consider virtualization beyond ~500 leads/tenant.
 
 ---
 
