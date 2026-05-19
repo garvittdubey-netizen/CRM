@@ -1,11 +1,14 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { Request } from 'express';
 import cors from 'cors';
 import { authRouter } from './routes/auth.routes';
 import { leadRouter } from './routes/lead.routes';
 import { usersRouter } from './routes/users.routes';
 import { agentsRouter } from './routes/agents.routes';
 import { followUpRouter } from './routes/followup.routes';
+import { communicationRouter } from './routes/communications.routes';
+import { activityRouter } from './routes/activities.routes';
+import { whatsappWebhookRouter } from './routes/whatsapp-webhook.routes';
 import { prisma } from './lib/prisma';
 import { seedAdmin } from './scripts/seed';
 
@@ -21,11 +24,9 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (curl, Postman) or allowed origins
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        // In development, allow all origins
         callback(null, true);
       }
     },
@@ -33,6 +34,20 @@ app.use(
   }),
 );
 
+// Webhook router needs the *raw* request body for HMAC verification, so we
+// mount a JSON parser scoped to this path with a `verify` hook that stashes
+// the buffer on req. This MUST come before the global JSON parser.
+app.use(
+  '/api/webhooks/whatsapp',
+  express.json({
+    verify: (req: Request & { rawBody?: Buffer }, _res, buf: Buffer) => {
+      req.rawBody = Buffer.from(buf);
+    },
+  }),
+  whatsappWebhookRouter,
+);
+
+// Global JSON parser for the rest of the API.
 app.use(express.json({ limit: '10mb' }));
 
 // Health check
@@ -46,6 +61,8 @@ app.use('/api/leads', leadRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/agents', agentsRouter);
 app.use('/api/followups', followUpRouter);
+app.use('/api/communications', communicationRouter);
+app.use('/api/activities', activityRouter);
 
 // 404 handler
 app.use((_req, res) => {

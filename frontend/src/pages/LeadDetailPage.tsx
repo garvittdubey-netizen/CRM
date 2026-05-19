@@ -23,6 +23,7 @@ import { LeadFormModal } from '@/components/leads/LeadFormModal';
 import { leadsApi } from '@/services/leads';
 import { extractApiError } from '@/services/api';
 import { LeadTimeline } from '@/components/followups/LeadTimeline';
+import { CommunicationTimeline } from '@/components/communications/CommunicationTimeline';
 import type { Lead } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -274,6 +275,12 @@ export default function LeadDetailPage() {
 
           {/* Follow-up Timeline */}
           <LeadTimeline lead={{ id: lead.id, fullName: lead.fullName }} canManage={canEdit} />
+
+          {/* Communication Timeline (WhatsApp + Calls) */}
+          <CommunicationTimeline
+            lead={{ id: lead.id, fullName: lead.fullName, phone: lead.phone }}
+            canManage={canEdit}
+          />
         </div>
 
         {/* Right column */}

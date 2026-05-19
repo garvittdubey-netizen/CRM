@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UpcomingFollowUpsWidget } from '@/components/followups/UpcomingFollowUpsWidget';
+import { ActivityWidget } from '@/components/activities/ActivityWidget';
 import { followUpsApi } from '@/services/followups';
 import { useAuth } from '@/hooks/useAuth';
 import type { FollowUpDashboardStats } from '@/types';
@@ -99,16 +100,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <UpcomingFollowUpsWidget />
         </div>
-        <Card data-testid="quick-stats-card">
-          <CardHeader>
-            <CardTitle className="text-base">Quick Stats</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              More insights coming soon — Properties, Clients, and Deals modules are in the pipeline.
-            </p>
-          </CardContent>
-        </Card>
+        <ActivityWidget />
       </div>
     </div>
   );

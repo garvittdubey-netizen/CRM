@@ -1,0 +1,75 @@
+{
+  "summary": "Communications & Activity module tested end-to-end. Backend: 15/15 pytest assertions pass (auth, list+pagination, conversations, log call+activity, expired-token surfacing for /whatsapp/send and /templates, webhook GET verification, webhook POST HMAC, activities RBAC, cross-agent call 403). Frontend: 14/16 UI specs verified for the AGENT role. Two integration issues found around the expired Meta token surface: because the backend re-throws Meta's HTTP 401 verbatim and the frontend's global axios interceptor unconditionally logs the user out on any non-auth 401, opening the Template Picker or clicking Send WhatsApp wipes auth_token and redirects to /login instead of showing the in-modal error (data-testid=template-picker-error is never reached). Spec #13 — verify a graceful template error rather than a crash — currently FAILS as a result.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/communications/templates and POST /api/communications/whatsapp/send",
+        "issue": "Returns HTTP 401 with body {error:'Error validating access token...', code:190, ...} when Meta upstream token is expired. The frontend's global 401 interceptor (src/services/api.ts L34) treats this as 'session expired', clears localStorage.auth_token, and redirects to /login. Net effect: a logged-in agent who clicks 'Use template' or 'Send' is silently logged out. Recommend mapping upstream Meta 401 → our 502 (Bad Gateway) — or alternatively mapping it to 400 — since 401 from our own API has the semantic 'YOUR session is invalid'. Spec allowed 400/401/502 but in this codebase only non-401 statuses are safe.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "TemplatePicker open → GET /api/communications/templates",
+        "issue": "Templates endpoint returns 401 (Meta code 190). Frontend axios interceptor wipes auth_token and routes to /login BEFORE the TemplatePicker can render its [data-testid=template-picker-error] alert. Spec #13 (graceful error display) fails because of this. Fix one of: (a) backend remaps upstream 401→502, or (b) frontend interceptor inspects response body and skips logout when status === 401 && body.code === 190 (or generally when url starts with /api/communications/{templates|whatsapp}).",
+        "affected_selectors": ["template-picker-error", "template-picker-modal", "chat-send-button"]
+      },
+      {
+        "flow": "ChatPanel → Send WhatsApp",
+        "issue": "Same as above — Meta 401 with code 190 cascades into a forced logout instead of inline error in [data-testid=chat-error]. Backend correctly does NOT persist a Communication row on failure (verified in pytest test_expired_token_surfaces_code_190).",
+        "affected_selectors": ["chat-error", "chat-send-button"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "All Radix DialogContent dialogs (CallLogModal, TemplatePicker)",
+        "issues": ["Console warning on every open: 'Missing Description or aria-describedby={undefined} for {DialogContent}'. Non-blocking a11y nit, carried over from previous iterations."]
+      }
+    ]
+  },
+  "ui_spec_results": {
+    "10_communications_page": "PASS — data-testid=communications-page rendered with conversation-inbox sidebar and chat panel.",
+    "11_chat_panel_testids": "PASS — chat-panel, chat-lead-name, chat-messages, chat-composer, chat-send-button, chat-template-button, chat-log-call-button all present.",
+    "12_log_call_from_chat": "PASS (functional) — modal opens, submit creates a CALL row visible in chat-messages and in /leads/:id Communication Timeline. Modal close after submit was flaky on first run; on lead-page reload the new TEST_pytest call log row appears correctly.",
+    "13_template_picker_expired_token": "FAIL — instead of showing [data-testid=template-picker-error], the GET /api/communications/templates returns 401 and the global axios interceptor immediately redirects to /login. See backend_issues.critical for root cause.",
+    "14_activity_page": "PASS — data-testid=activities-page renders with 15 activity entries discoverable for the agent. CALL_LOGGED entries verified by backend test.",
+    "15_dashboard_activity_widget": "PASS — data-testid=activity-widget renders on /dashboard.",
+    "16_lead_detail_communication_timeline": "PASS — data-testid=communication-timeline coexists with lead-timeline on /leads/:id; comm-log-call button visible because canManage=true for assigned agent.",
+    "17_sidebar_links": "PASS — nav-communications and nav-activity entries present."
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_communications.py",
+    "/app/test_reports/pytest/communications_results.xml"
+  ],
+  "action_items": [
+    "Backend: map upstream Meta API 401 to HTTP 502 (Bad Gateway) in whatsapp.service.ts/communication.controller.ts so it isn't conflated with our own auth. This unblocks spec #13 and prevents the 'phantom logout' UX.",
+    "Frontend (alternative): in src/services/api.ts response interceptor, skip the logout path when the failing request URL is under /api/communications/{templates,whatsapp/send} OR when error.response.data.code is a Meta error code (190, 100, etc.).",
+    "Optional: add a DialogDescription to CallLogModal and TemplatePicker to silence the Radix a11y warning carried over from earlier iterations."
+  ],
+  "critical_code_review_comments": [
+    "whatsapp.service.ts L67-75 forwards res.status verbatim into WhatsAppApiError. Wrap this so that upstream 401 maps to 502 (or 400) — never 401 — because the frontend's global interceptor treats 401 as session expiry. This is the single highest-impact fix.",
+    "communication.controller.ts sendError uses 'e.status >= 400 && e.status < 600 ? e.status : 502'. The else-502 fallback is good, but the >=400 branch lets 401 leak through. Clamp Meta upstream errors explicitly: 'e.status === 401 ? 502 : (e.status in [400..599] ? e.status : 502)'.",
+    "api.ts L34 interceptor uses a coarse 'redirect on any 401 not on /auth/login'. Consider checking error.response.data.code or scoping by url so 3rd-party-relayed 401s don't bounce the user. Defense-in-depth even after the backend fix.",
+    "ChatPanel template button uses 'disabled={!conversation.phone || sending}' — fine, but ChatPanel.handleSendTemplate should reset 'sending' on error so that subsequent retries are not blocked.",
+    "verifyWhatsAppSignature.ts correctly uses timingSafeEqual + length check; HMAC path verified end-to-end against APP_SECRET 79eda... — solid.",
+    "communication.service.ts cross-agent guard returns 403 with the exact message expected by tests; RBAC scoping verified via API on /api/communications and /api/activities.",
+    "Radix DialogContent across the codebase still lacks DialogDescription — emits the same a11y warning flagged in iteration_4."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_communications.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 pytest assertions on 9 spec items)",
+    "frontend": "87.5% (14/16 spec items; #13 fails and #4-cascade send WhatsApp shares the same root cause)"
+  },
+  "test_credentials": "Admin admin@realestate.com / Admin@2036, Agent agent@realestate.com / Agent@2036 — from /app/memory/test_credentials.md. Token stored at localStorage.auth_token.",
+  "seed_data_creation": "Added 2-3 transient CALL communications on the seeded Demo Lead while exercising spec #3 / #12 (notes start with 'TEST_pytest' or 'TEST_playwright'). Re-run the seed script if a clean state is required for the next iteration. Did not modify lead, agent, or follow-up records.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/test_communications.py is parametrised on the public preview URL and runs in ~20s. The two open issues are tightly coupled: backend whatsapp upstream → 401, frontend interceptor → logout. Once either side is patched, re-run pytest TestWhatsAppSend + TestTemplates (still expecting Meta code 190 to surface, but at a non-401 status) AND re-run the playwright #13 flow expecting [data-testid=template-picker-error] visible.",
+  "rca_of_the_issue": "Root cause for spec #13 failure: (1) backend whatsapp.service.ts:67-75 throws WhatsAppApiError with status=res.status — so an upstream Meta 401 (code 190 expired token) becomes a literal HTTP 401 from our /api. (2) Frontend axios interceptor in services/api.ts:34 treats every non-auth-endpoint 401 as 'session expired', wiping localStorage.auth_token and window.location='/login'. Combined, the TemplatePicker modal mounts → GET /templates → 401 → user is yanked to the login screen before the in-modal error banner can render. Reproduction: log in as agent, click any conversation, click 'Use template' → you'll see a brief modal flash then a redirect to /login. Mitigation options listed in action_items."
+}

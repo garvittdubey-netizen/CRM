@@ -8,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  name      String
-  email     String     @unique
-  password  String
-  role      Role       @default(AGENT)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  leads     Lead[]     @relation("AssignedAgent")
-  followUps FollowUp[] @relation("FollowUpAgent")
+  id              String          @id @default(cuid())
+  name            String
+  email           String          @unique
+  password        String
+  role            Role            @default(AGENT)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  leads           Lead[]          @relation("AssignedAgent")
+  followUps       FollowUp[]      @relation("FollowUpAgent")
+  communications  Communication[] @relation("CommunicationCreator")
+  activities      Activity[]      @relation("UserActivities")
 
   @@map("users")
 }
@@ -36,6 +38,8 @@ model Lead {
   assignedAgentId   String?
   assignedAgent     User?      @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
   followUps         FollowUp[] @relation("LeadFollowUps")
+  communications    Communication[] @relation("LeadCommunications")
+  activities        Activity[] @relation("LeadActivities")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -79,4 +83,57 @@ enum FollowUpStatus {
   PENDING
   COMPLETED
   MISSED
+}
+
+model Communication {
+  id                String                  @id @default(cuid())
+  leadId            String
+  lead              Lead                    @relation("LeadCommunications", fields: [leadId], references: [id], onDelete: Cascade)
+  type              CommunicationType
+  direction         CommunicationDirection?
+  message           String?                 @db.Text
+  templateName      String?
+  templateLang      String?
+  templateParams    Json?
+  callDuration      Int?
+  callOutcome       String?
+  status            String                  @default("PENDING")
+  whatsappMessageId String?                 @unique
+  errorCode         Int?
+  errorDetail       String?                 @db.Text
+  createdById       String?
+  createdBy         User?                   @relation("CommunicationCreator", fields: [createdById], references: [id])
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([leadId, createdAt])
+  @@index([type, createdAt])
+  @@map("communications")
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("UserActivities", fields: [userId], references: [id])
+  leadId      String?
+  lead        Lead?    @relation("LeadActivities", fields: [leadId], references: [id], onDelete: SetNull)
+  action      String
+  description String   @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([leadId, createdAt])
+  @@map("activities")
+}
+
+enum CommunicationType {
+  WHATSAPP
+  CALL
+}
+
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
 }

@@ -112,3 +112,100 @@ export interface FollowUpDashboardStats {
   overdue: number;
   upcoming: number;
 }
+
+// ── Communication Module ─────────────────────────────────────────────────────
+
+export type CommunicationType = 'WHATSAPP' | 'CALL';
+export type CommunicationDirection = 'INBOUND' | 'OUTBOUND';
+
+export interface Communication {
+  id: string;
+  leadId: string;
+  lead?: { id: string; fullName: string; phone: string | null; assignedAgentId: string | null };
+  type: CommunicationType;
+  direction: CommunicationDirection | null;
+  message: string | null;
+  templateName: string | null;
+  templateLang: string | null;
+  templateParams: string[] | null;
+  callDuration: number | null;
+  callOutcome: string | null;
+  status: string;
+  whatsappMessageId: string | null;
+  errorCode: number | null;
+  errorDetail: string | null;
+  createdById: string | null;
+  createdBy: { id: string; name: string; email: string; role: UserRole } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommunicationsResponse {
+  communications: Communication[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface ConversationSummary {
+  leadId: string;
+  leadName: string;
+  phone: string | null;
+  status: LeadStatus;
+  lastMessage: {
+    id: string;
+    type: CommunicationType;
+    direction: CommunicationDirection | null;
+    message: string | null;
+    status: string;
+    createdAt: string;
+  } | null;
+}
+
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  language: string;
+  status: string;
+  category: string;
+  bodyText?: string;
+  bodyParamCount: number;
+}
+
+export interface SendWhatsAppPayload {
+  leadId: string;
+  message?: string;
+  templateName?: string;
+  templateLang?: string;
+  templateParams?: string[];
+}
+
+export interface LogCallPayload {
+  leadId: string;
+  callOutcome: string;
+  callDuration?: number;
+  notes?: string;
+}
+
+// ── Activity Module ──────────────────────────────────────────────────────────
+
+export interface Activity {
+  id: string;
+  userId: string;
+  user: { id: string; name: string; email: string; role: UserRole };
+  leadId: string | null;
+  lead: { id: string; fullName: string } | null;
+  action: string;
+  description: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface ActivitiesResponse {
+  activities: Activity[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
