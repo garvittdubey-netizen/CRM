@@ -1,132 +1,42 @@
-# Real Estate CRM - PRD
+# PRD — Real Estate CRM
 
-## Original Problem Statement
-Create a Real Estate CRM foundation with:
-- React + Vite + TypeScript frontend
-- TailwindCSS + Shadcn UI
-- Node.js + Express backend
-- PostgreSQL + Prisma ORM
-- JWT authentication
-- Admin and Agent roles
-- Protected routes
-- Responsive sidebar and navbar
-- Dashboard page structure
-- Dark/light mode auto-toggle
+## Original problem statement (current iteration)
+Continue from existing repository state. Verify and repair only the remaining frontend follow-up work:
+1) Follow-ups page UI, 2) Create/Edit modal, 3) Dashboard stat cards, 4) UpcomingFollowUpsWidget,
+5) ReminderBadge, 6) LeadTimeline integration, 7) Calendar/List toggle, 8) Admin-only visibility for
+`followup-agent-select` and `delete-followup` button. Fix any bugs. Update EMERGENT_STATE.md.
 
 ## Architecture
+- Frontend: React 18 + Vite + TS + Tailwind + Shadcn (port 3000)
+- Python proxy: FastAPI (port 8001) → Node API
+- Node API: Express + Prisma (port 8002)
+- DB: PostgreSQL 15 (localhost)
+- Auth: JWT (bcryptjs), token stored in localStorage `auth_token`
 
-### Tech Stack
-- Frontend: React 18 + Vite + TypeScript + TailwindCSS + Shadcn UI
-- Backend: Node.js + Express + TypeScript (port 8002)
-- Proxy: Python FastAPI (port 8001 → 8002)
-- ORM: Prisma v5 + PostgreSQL 15
-- Auth: JWT + bcryptjs
-- Theme: next-themes
+## User personas
+- ADMIN: full CRUD, reassign leads, delete follow-ups, choose any agent.
+- AGENT: sees only own assigned leads/follow-ups, auto-assigned to self when creating.
 
-### Key Design Decisions
-- Python FastAPI as reverse proxy (port 8001) → Node.js (port 8002) due to supervisor constraints
-- JWT in localStorage with Authorization Bearer header
-- Shadcn UI with custom navy blue (#1E3A5F) theme
-- Split-screen login page (form + property image)
+## Core requirements (static)
+- Lead module: CRUD + search + filters + role rules + agent assignment.
+- Follow-up module: CRUD, stats, complete, list/calendar views, lead timeline, reminder classification.
 
-## What's Been Implemented (2026-05-19)
+## What's implemented
+- [x] Auth + admin seed (Phase 1)
+- [x] Lead module (Phase 2, 2026-05-19)
+- [x] Follow-up backend + frontend (Phase 2.5, verified 2026-05-19)
+  - Verified via testing agent iteration_4.json — 11/11 spec items pass.
+  - Environment restored this session: Postgres 15 installed, migrations deployed, `node_backend` supervisor program added.
 
-### Phase 1 — Foundation
-**Backend (Node.js/Express/Prisma)**
-- `src/index.ts` - Express app setup, CORS, routes
-- `src/routes/auth.routes.ts` - Auth endpoints
-- `src/controllers/auth.controller.ts` - Request handling
-- `src/services/auth.service.ts` - Business logic
-- `src/middleware/auth.ts` - JWT verification, role checks
-- `src/lib/prisma.ts` - Singleton Prisma client
-- `src/scripts/seed.ts` - Admin user seeding
-- `prisma/schema.prisma` - User model + Role enum
-- Initial migration: 20260519110814_init
+## Backlog (prioritized)
+- P1: Properties module (CRUD), Clients module, Deals module
+- P1: User management page (ADMIN)
+- P2: Wire Dashboard "Leads" stat to a real `/api/dashboard/stats` endpoint
+- P2: Mobile sidebar drawer (Sheet)
+- P3: Optional a11y polish — add `DialogDescription` to all Radix dialogs (FollowUpFormModal first)
+- P3: FollowUpsPage.fetchData error handling — keep last-known items and surface toast instead of clearing list
 
-**Frontend (React/Vite/TypeScript)**
-- `src/App.tsx` - Route structure
-- `src/pages/LoginPage.tsx` - Split-screen login
-- `src/pages/DashboardPage.tsx` - Stats cards + layout
-- `src/pages/UnauthorizedPage.tsx` - 403 page
-- `src/components/layout/Sidebar.tsx` - Collapsible nav
-- `src/components/layout/Navbar.tsx` - Theme + user menu
-- `src/components/layout/MainLayout.tsx` - Shell
-- `src/components/auth/ProtectedRoute.tsx` - Role guards
-- `src/contexts/AuthContext.tsx` - Auth state management
-- `src/services/api.ts` - Axios instance + interceptors
-- Shadcn UI: Button, Card, Input, Label, Badge, Avatar, etc.
-
-**Infrastructure**
-- PostgreSQL 15 installed locally (localhost:5432/real_estate_crm) — owned by `postgres`, NOT Emergent-managed
-- Supervisor: node_backend.conf added (port 8002)
-- EMERGENT_STATE.md created
-
-### Phase 2.1 — Security & Ownership Hardening (2026-05-19)
-**Backend**
-- `lead.controller.ts → editLead`: ADMIN bypasses checks; non-admins must own the lead (`assignedAgentId === userId`), else 403. Non-admins also cannot send a different `assignedAgentId` (returns 403 "Only an admin can reassign leads").
-- `users.routes.ts`: `GET /api/users` now wrapped in `requireRole('ADMIN')` — 403 for agents.
-- `agents.routes.ts` (new): `GET /api/agents` returns only `role=AGENT` users with `{id, name, role}`. No emails, no admins. Used as the dropdown data source.
-- Tests: `/app/backend/tests/test_lead_permissions.py` (10/10 passing). Original `test_leads.py` still 17/17.
-
-**Frontend**
-- `services/api.ts`: added `extractApiError()` helper for friendly 403/error messages; 401 interceptor unchanged.
-- `services/leads.ts`: added `agentsApi.list()` typed to `{id, name, role}[]`.
-- `LeadFormModal.tsx`: switched to `agentsApi`, dropdown rendered only for ADMIN, fully surfaces server-side errors.
-- `LeadDetailPage.tsx`: introduces `canEdit` flag, hides Edit button + notes Edit button when the agent isn't the assignee. Notes save now displays inline error on permission failure.
-- `LeadsPage.tsx`: delete failures surface via `window.alert` instead of being silently swallowed.
-
-### Phase 2 — Lead Management (2026-05-19)
-**Backend**
-- `prisma/schema.prisma` — Lead model + LeadStatus enum (NEW/CONTACTED/QUALIFIED/NEGOTIATING/WON/LOST)
-- Migration: 20260519113134_add_lead_model
-- `src/routes/lead.routes.ts` — full CRUD + PATCH /:id/assign (admin-only on delete & assign)
-- `src/controllers/lead.controller.ts` — validation, error handling (P2025)
-- `src/services/lead.service.ts` — search across fullName/phone/email/preferredLocation, filter by status/propertyType/bhk/assignedAgentId, pagination, sort. AGENT role scoped to own leads.
-- `src/routes/users.routes.ts` — GET /api/users for assignment dropdown
-- Decimal budget serialized as plain number for JSON
-
-**Frontend**
-- `src/pages/LeadsPage.tsx` — table, search (debounced), filters (status/property), pagination, role-aware delete
-- `src/pages/LeadDetailPage.tsx` — contact/property/notes/tags/agent/status sections + inline notes editor
-- `src/components/leads/LeadFormModal.tsx` — add & edit form
-- `src/components/leads/StatusBadge.tsx`, `TagInput.tsx`
-- `src/services/leads.ts` — typed API client
-- `src/types/index.ts` — Lead, LeadsResponse, CreateLeadData, UpdateLeadData
-- App.tsx wired: `/leads`, `/leads/:id` under ProtectedRoute + MainLayout
-- Sidebar wired: "Leads" nav item with UserPlus icon
-
-**Testing**: 17/17 backend pytest + 13/13 frontend E2E passed — `/app/test_reports/iteration_2.json`
-**Regression suite**: `/app/backend/tests/test_leads.py`
-
-## Prioritized Backlog
-
-### P0 — Must Have (Phase 3)
-- Properties module (CRUD)
-- Clients module (CRUD)
-- Deals module (CRUD)
-
-### P1 — Important (Phase 4)
-- Dashboard stats API connection
-- User management page (Admin) — backend `GET /api/users` (admin-only) exists
-- Reports page (Admin)
-- Mobile sidebar drawer (Sheet component)
-
-### P2 — Nice to Have (Phase 5)
-- Export leads (CSV/PDF)
-- Email/WhatsApp notifications on lead status change
-- Activity log / audit trail per lead
-- File attachments (property photos, lead documents)
-- Bulk import leads (CSV)
-- Saved filter presets
-
-## User Personas
-- **Admin**: Manager overseeing all agents, leads, properties, reports
-- **Agent**: Day-to-day user managing their assigned leads, properties, clients
-
-## Next Tasks
-1. Properties module (Prisma model + API + UI)
-2. Clients module
-3. Deals module
-4. Connect dashboard stats to real API data (lead counts by status)
-5. Implement mobile sidebar with Sheet component
-6. Resolve open Lead module decisions (AGENT edit scope, /api/users access)
+## Next tasks
+1. Properties module (Prisma model + CRUD + UI).
+2. Clients & Deals modules.
+3. Real dashboard stats endpoint.

@@ -53,6 +53,13 @@
 
 ### Current Phase
 **Phase 2: Lead Management** — COMPLETE
+**Phase 2.5: Follow-up Module (Backend + Frontend)** — COMPLETE & VERIFIED (2026-05-19)
+  - Backend: `/api/followups` (CRUD), `/api/followups/stats`, `/api/followups/:id/complete` — already tested.
+  - Frontend: `FollowUpsPage`, `FollowUpFormModal`, `UpcomingFollowUpsWidget`, `ReminderBadge`, `LeadTimeline`, dashboard stat cards.
+  - Verified end-to-end via testing agent (iteration_4.json): 11/11 spec items pass for both ADMIN and AGENT.
+  - Role-based visibility confirmed: `followup-agent-select` and `delete-followup-{id}` are ADMIN-only.
+  - Calendar/List view toggle, mark-complete, classifyFollowUp (OVERDUE/TODAY buckets) all working.
+  - **Environment note**: container was restored this session (Postgres 15 installed, migrations re-deployed, supervisor program `node_backend` added at `/etc/supervisor/conf.d/supervisord_node_backend.conf`).
 
 ---
 
