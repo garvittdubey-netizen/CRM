@@ -208,8 +208,9 @@ class TestWhatsAppSend:
             json={"leadId": agent_lead["id"], "message": "TEST_pytest probe — expired-token check"},
             timeout=30,
         )
-        # Must NOT be 500
-        assert r.status_code in (400, 401, 502), f"unexpected status: {r.status_code} {r.text}"
+        # After the upstream-401→502 remap, must be 502 (NOT 401) so the
+        # frontend's global 401 interceptor does not log the user out.
+        assert r.status_code == 502, f"expected 502, got {r.status_code}: {r.text}"
         body_text = r.text
         try:
             body_json = r.json()
@@ -217,6 +218,15 @@ class TestWhatsAppSend:
         except Exception:
             blob = body_text
         assert "190" in blob, f"Meta error code 190 not surfaced in body: {blob}"
+        # Defense-in-depth: explicit assertion that the body carries code: 190
+        try:
+            body_json = r.json()
+            # code may be at body.code or body.error.code depending on wrapper
+            code_val = body_json.get("code") or (body_json.get("error") or {}).get("code")
+            assert code_val == 190, f"expected code 190 in body, got: {body_json}"
+        except (ValueError, AssertionError) as e:
+            if isinstance(e, AssertionError):
+                raise
 
         # No new communication row
         after = requests.get(
@@ -229,15 +239,18 @@ class TestWhatsAppSend:
 class TestTemplates:
     def test_templates_surface_meta_error(self, admin_token):
         r = requests.get(f"{BASE_URL}/api/communications/templates", headers=_h(admin_token), timeout=30)
-        # Acceptable: 4xx/5xx surfacing Meta error 190
-        assert r.status_code != 200 or "templates" not in r.text or "190" in r.text, (
-            f"unexpected 200 templates with no error: {r.text}"
+        # After upstream-401→502 remap, expired token must be 502 (NOT 401).
+        assert r.status_code == 502, f"expected 502, got {r.status_code}: {r.text}"
+        blob = r.text
+        assert "190" in blob or "access token" in blob.lower(), (
+            f"templates error did not surface 190 / access token: {blob}"
         )
-        if r.status_code != 200:
-            blob = r.text
-            assert "190" in blob or "access token" in blob.lower(), (
-                f"templates error did not surface 190 / access token: {blob}"
-            )
+        try:
+            body_json = r.json()
+            code_val = body_json.get("code") or (body_json.get("error") or {}).get("code")
+            assert code_val == 190, f"expected code 190 in body, got: {body_json}"
+        except ValueError:
+            pass
 
 
 # ---------- #6 webhook verification ----------

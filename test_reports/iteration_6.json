@@ -1,0 +1,50 @@
+{
+  "summary": "Re-tested the two previously failing specs (#13 TemplatePicker error path and #4-cascade ChatPanel send-error path) after the upstream-401→502 remap in whatsapp.service.ts L67-78. Both now PASS. Backend pytest 15/15 still green. Frontend: TemplatePicker modal opens with [data-testid=template-picker-error] showing the Meta token-expired message, user stays on /communications. ChatPanel send surfaces [data-testid=chat-error] with 'Authentication Error', user stays on /communications. No redirect-to-login on either path.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "TemplatePicker / CallLogModal (Radix DialogContent)",
+        "issues": ["Carried-over a11y nit: 'Missing Description or aria-describedby={undefined} for {DialogContent}' console warning. Non-blocking, already noted in iteration_5."]
+      }
+    ]
+  },
+  "spec_results": {
+    "13_template_picker_expired_token": "PASS — modal_visible=true; template-picker-error text: 'Error validating access token: Session has expired on Monday, 18-May-26 04:00:00 PDT. The current time is Tuesday, 19-May-26 07:51:40 PDT. Templates come from Meta. Confirm the access token is valid and that the WhatsApp Business Account has approved templates.' URL remained /communications (no /login redirect).",
+    "4_cascade_chat_send_expired_token": "PASS — chat-error visible with text 'Authentication Error' after clicking chat-send-button. URL remained /communications (no /login redirect). Console shows 502 from /api/communications/whatsapp/send.",
+    "backend_templates_502": "PASS — GET /api/communications/templates returns HTTP 502 with body.error.code === 190.",
+    "backend_whatsapp_send_502": "PASS — POST /api/communications/whatsapp/send returns HTTP 502 with body.error.code === 190; no Communication row persisted on failure."
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_communications.py",
+    "/app/test_reports/pytest/communications_results_full.xml",
+    "/app/test_reports/pytest/communications_results_v2.xml"
+  ],
+  "action_items": [
+    "Optional: add DialogDescription to TemplatePicker and CallLogModal to silence the Radix a11y warning (non-blocking)."
+  ],
+  "critical_code_review_comments": [
+    "whatsapp.service.ts L67-78 correctly remaps upstream 401 → 502 while preserving the Meta error code (190) in the response body — fixes the phantom-logout UX cleanly.",
+    "communication.controller.ts sendError fallback (e.status in [400..599] ? e.status : 502) is now safe because whatsapp.service.ts never lets a 401 leak out for upstream errors.",
+    "Defense-in-depth still recommended (low priority): frontend api.ts interceptor could inspect error.response.data.code or scope the redirect by URL to harden against future regressions where an upstream provider returns 401 verbatim.",
+    "Carried-over: Radix DialogContent across the codebase still lacks DialogDescription — a11y warning remains."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_communications.py (TestWhatsAppSend and TestTemplates updated to require 502 with body.code === 190)"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 pytest assertions; previously-loose 4xx/5xx checks tightened to exact 502 + code 190)",
+    "frontend": "100% on the two retested specs (#13 and #4-cascade). All other iteration_5 specs (10–17) unaffected and still PASS."
+  },
+  "test_credentials": "Admin admin@realestate.com / Admin@2036, Agent agent@realestate.com / Agent@2036. Token stored at localStorage.auth_token.",
+  "seed_data_creation": "Two TEST_playwright call logs already exist on Demo Lead and Priya Sharma from prior iterations. No new persistent data created (template/whatsapp sends fail before persistence, by design).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both previously failing specs now pass. Backend pytest at /app/backend/tests/test_communications.py is authoritative (15 tests, ~21s). Agent inbox has 2 conversations (Priya Sharma, Demo Lead) — wait ~3-4s after navigating to /communications before querying [data-testid^=conversation-item-] selectors as the skeleton loader is visible briefly. Meta token remains intentionally expired.",
+  "rca_of_the_issue": "Iteration 5 root cause was: upstream Meta 401 (expired token, code 190) propagated verbatim through WhatsAppApiError → response status = 401 → frontend api.ts interceptor saw 401 and wiped auth_token + redirected to /login. Fix in whatsapp.service.ts L72: 'const status = res.status === 401 ? 502 : res.status;' — semantic correction (502 Bad Gateway means upstream auth failure, not OUR auth failure). Verified both via pytest (status code now 502, body still carries Meta code 190 unchanged) and via Playwright (template-picker-error and chat-error both render inline, no /login redirect, auth_token preserved). Network panel confirms 502 from /api/communications/templates and /api/communications/whatsapp/send."
+}

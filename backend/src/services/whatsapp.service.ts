@@ -66,9 +66,13 @@ async function graphFetch(path: string, init: RequestInit): Promise<unknown> {
 
   if (!res.ok) {
     const err = (body as { error?: { message?: string; code?: number } } | null)?.error;
+    // Remap upstream 401 (e.g. expired access token) to 502 so the frontend's
+    // global "redirect to /login on 401" interceptor doesn't conflate Meta auth
+    // with our own JWT auth.
+    const status = res.status === 401 ? 502 : res.status;
     throw new WhatsAppApiError(
       err?.message || `WhatsApp API error (${res.status})`,
-      res.status,
+      status,
       err?.code,
       body,
     );
