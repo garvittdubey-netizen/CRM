@@ -5,6 +5,7 @@ import {
   Building2,
   Users,
   UserPlus,
+  CalendarClock,
   TrendingUp,
   BarChart3,
   Settings,
@@ -29,6 +30,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: UserPlus, label: 'Leads', href: '/leads' },
+  { icon: CalendarClock, label: 'Follow-ups', href: '/followups' },
   { icon: Building2, label: 'Properties', href: '/properties' },
   { icon: Users, label: 'Clients', href: '/clients' },
   { icon: TrendingUp, label: 'Deals', href: '/deals' },

@@ -22,6 +22,7 @@ import { StatusBadge } from '@/components/leads/StatusBadge';
 import { LeadFormModal } from '@/components/leads/LeadFormModal';
 import { leadsApi } from '@/services/leads';
 import { extractApiError } from '@/services/api';
+import { LeadTimeline } from '@/components/followups/LeadTimeline';
 import type { Lead } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -270,6 +271,9 @@ export default function LeadDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Follow-up Timeline */}
+          <LeadTimeline lead={{ id: lead.id, fullName: lead.fullName }} canManage={canEdit} />
         </div>
 
         {/* Right column */}

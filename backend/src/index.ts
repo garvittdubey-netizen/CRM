@@ -5,6 +5,7 @@ import { authRouter } from './routes/auth.routes';
 import { leadRouter } from './routes/lead.routes';
 import { usersRouter } from './routes/users.routes';
 import { agentsRouter } from './routes/agents.routes';
+import { followUpRouter } from './routes/followup.routes';
 import { prisma } from './lib/prisma';
 import { seedAdmin } from './scripts/seed';
 
@@ -44,6 +45,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/leads', leadRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/agents', agentsRouter);
+app.use('/api/followups', followUpRouter);
 
 // 404 handler
 app.use((_req, res) => {

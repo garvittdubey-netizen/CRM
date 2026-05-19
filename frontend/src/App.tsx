@@ -7,6 +7,7 @@ import DashboardPage from '@/pages/DashboardPage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
 import LeadsPage from '@/pages/LeadsPage';
 import LeadDetailPage from '@/pages/LeadDetailPage';
+import FollowUpsPage from '@/pages/FollowUpsPage';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/leads" element={<LeadsPage />} />
             <Route path="/leads/:id" element={<LeadDetailPage />} />
+            <Route path="/followups" element={<FollowUpsPage />} />
           </Route>
         </Route>
 

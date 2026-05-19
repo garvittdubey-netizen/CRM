@@ -64,3 +64,51 @@ export interface CreateLeadData {
 }
 
 export type UpdateLeadData = Partial<CreateLeadData>;
+
+// ── Follow-Up Module ─────────────────────────────────────────────────────────
+
+export type FollowUpStatus = 'PENDING' | 'COMPLETED' | 'MISSED';
+
+export interface FollowUp {
+  id: string;
+  leadId: string;
+  lead: {
+    id: string;
+    fullName: string;
+    status: LeadStatus;
+    phone: string | null;
+  };
+  assignedAgentId: string;
+  assignedAgent: { id: string; name: string; email: string };
+  followUpDate: string;
+  reminderDate: string | null;
+  status: FollowUpStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FollowUpsResponse {
+  followUps: FollowUp[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface CreateFollowUpData {
+  leadId: string;
+  assignedAgentId: string;
+  followUpDate: string;
+  reminderDate?: string | null;
+  status?: FollowUpStatus;
+  notes?: string | null;
+}
+
+export type UpdateFollowUpData = Partial<CreateFollowUpData>;
+
+export interface FollowUpDashboardStats {
+  today: number;
+  overdue: number;
+  upcoming: number;
+}

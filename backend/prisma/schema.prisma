@@ -8,14 +8,15 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  email     String   @unique
+  email     String     @unique
   password  String
-  role      Role     @default(AGENT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  leads     Lead[]   @relation("AssignedAgent")
+  role      Role       @default(AGENT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  leads     Lead[]     @relation("AssignedAgent")
+  followUps FollowUp[] @relation("FollowUpAgent")
 
   @@map("users")
 }
@@ -34,10 +35,30 @@ model Lead {
   notes             String?    @db.Text
   assignedAgentId   String?
   assignedAgent     User?      @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  followUps         FollowUp[] @relation("LeadFollowUps")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
   @@map("leads")
+}
+
+model FollowUp {
+  id              String         @id @default(cuid())
+  leadId          String
+  lead            Lead           @relation("LeadFollowUps", fields: [leadId], references: [id], onDelete: Cascade)
+  assignedAgentId String
+  assignedAgent   User           @relation("FollowUpAgent", fields: [assignedAgentId], references: [id])
+  followUpDate    DateTime
+  reminderDate    DateTime?
+  status          FollowUpStatus @default(PENDING)
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([assignedAgentId, followUpDate])
+  @@index([leadId])
+  @@index([status, followUpDate])
+  @@map("follow_ups")
 }
 
 enum Role {
@@ -52,4 +73,10 @@ enum LeadStatus {
   NEGOTIATING
   WON
   LOST
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  MISSED
 }
