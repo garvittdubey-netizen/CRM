@@ -61,6 +61,14 @@
   - Calendar/List view toggle, mark-complete, classifyFollowUp (OVERDUE/TODAY buckets) all working.
   - **Environment note**: container was restored this session (Postgres 15 installed, migrations re-deployed, supervisor program `node_backend` added at `/etc/supervisor/conf.d/supervisord_node_backend.conf`).
 
+**Phase 2.6: Persistent shared database migration** — COMPLETE (2026-05-19)
+  - Switched `DATABASE_URL` to managed Neon PostgreSQL (ap-southeast-1) — see [Database Connection](#database-connection).
+  - Applied all 3 Prisma migrations (`20260519110814_init`, `20260519113134_add_lead_model`, `20260519130935_add_followup_model`) via `npx prisma migrate deploy`.
+  - Verified tables present: `users`, `leads`, `follow_ups`, `_prisma_migrations`.
+  - Seeded only required users (admin auto-seeded at startup; agent seeded idempotently). No fake lead/follow-up data.
+  - Verified end-to-end: admin + agent login, `/api/followups/stats`, `/api/leads`, `/api/agents` all return 200 against Neon.
+  - Local Postgres 15 is no longer used; do not switch back.
+
 ---
 
 ## Database
@@ -107,10 +115,16 @@
 
 ### Database Connection
 
+**Persistent shared database (Neon PostgreSQL, ap-southeast-1).**
+Configured via `DATABASE_URL` in `/app/backend/.env`. Do NOT switch to a local/workspace database — this Neon instance is the single source of truth across sessions.
+
 ```bash
-# Connect to PostgreSQL
-psql postgresql://postgres:Admin@2036@localhost:5432/real_estate_crm
+# DATABASE_URL (set in /app/backend/.env)
+postgresql://neondb_owner:npg_xhY6CcBzH8ek@ep-long-hill-aoerz0f8.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
 ```
+
+Verified tables (2026-05-19): `users`, `leads`, `follow_ups` (Prisma `FollowUp` model is `@@map("follow_ups")`), `_prisma_migrations`.
+Seeded users (idempotent): `admin@realestate.com / Admin@2036` (ADMIN), `agent@realestate.com / Agent@2036` (AGENT). No fake lead/follow-up data is seeded — create on demand via the UI or API.
 
 ### Migration Commands
 
@@ -176,7 +190,7 @@ Role:     ADMIN
 ### Backend (`/app/backend/.env`)
 
 ```env
-DATABASE_URL=postgresql://postgres:Admin@2036@localhost:5432/real_estate_crm
+DATABASE_URL=postgresql://neondb_owner:npg_xhY6CcBzH8ek@ep-long-hill-aoerz0f8.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
 JWT_SECRET=de45b3e0ad171b94d92263e40f26801ea167ef8e4154fbb31f3f0170056ed9bb
 JWT_EXPIRES_IN=7d
 PORT=8002
