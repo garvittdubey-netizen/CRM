@@ -98,6 +98,19 @@
   - **Tested**: 15/15 backend pytest assertions, 16/16 frontend specs (iteration_6.json). Webhook GET verification, HMAC signature verification (valid + invalid + missing), inbound message persistence + auto-activity, RBAC scoping, and the expired-token graceful error path all green.
   - **Note on the provided Meta access token**: it is EXPIRED (Meta error code 190, expired 2026-05-18). The integration is fully real — once the user supplies a fresh access token (or a permanent System User token), send + templates will work without code changes.
 
+**Phase 3.1: Communication UX workflow corrections** — COMPLETE & VERIFIED (2026-05-19, iteration_7.json)
+  - **Leads page** — added per-row WhatsApp icon (`message-lead-{id}`) that navigates straight to `/communications?leadId={id}`. Disabled with helpful tooltip when the lead has no phone.
+  - **Lead Profile** — `lead-message-button` (always available when phone exists) and `lead-call-button` (canManage only) added beside Edit/Delete. The Call button opens the existing `CallLogModal`; the Message button deep-links into the chat.
+  - **Communications page**:
+    - `new-conversation-button` opens a 2-mode `NewConversationModal`:
+      - **Existing lead** — debounced search via `/api/leads?search=` → click result → `/communications?leadId={id}`.
+      - **New phone number** — creates a new lead via `POST /api/leads` (so the chat has a CRM home), then opens its conversation. Optional contact name (defaults to `Unknown (<phone>)`).
+    - Synthetic stub conversations are created client-side for leads opened via `?leadId=` that have no prior communications (cleared once the first message persists server-side).
+    - **Unread badge** + last-message preview: per-user, per-lead `comm:lastRead:{userId}:{leadId}` localStorage marker. INBOUND messages newer than the marker show a green dot on the inbox row and a `total-unread-badge` "N new" in the page header; clicking the conversation marks read.
+    - Search by name AND phone in the inbox filter (already present, retained).
+  - **No backend changes** in this iteration — confirmed end-to-end (iteration_6 pytest still 15/15 green).
+  - Verified by testing agent: 8/8 UX specs PASS, including unread-badge verified by injecting an INBOUND WhatsApp webhook with a valid HMAC-SHA256 signature.
+
 ---
 
 ## Database
