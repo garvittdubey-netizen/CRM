@@ -276,27 +276,28 @@ export function LeadFormModal({ open, onClose, onSuccess, lead }: Props) {
             <p className="text-xs text-muted-foreground">Press Enter or comma to add a tag</p>
           </div>
 
-          {/* Assign Agent */}
-          <div className="space-y-1.5">
-            <Label>Assign to Agent</Label>
-            <Select
-              value={form.assignedAgentId || 'NONE'}
-              onValueChange={(v) => set('assignedAgentId')(v === 'NONE' ? null : v)}
-            >
-              <SelectTrigger data-testid="lead-agent-select">
-                <SelectValue placeholder="Unassigned" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">Unassigned</SelectItem>
-                {agents.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
-                    {u.role === 'ADMIN' ? ' (Admin)' : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Assign Agent — admin only (PATCH /:id/assign is admin-gated) */}
+          {isAdmin && (
+            <div className="space-y-1.5">
+              <Label>Assign to Agent</Label>
+              <Select
+                value={form.assignedAgentId || 'NONE'}
+                onValueChange={(v) => set('assignedAgentId')(v === 'NONE' ? null : v)}
+              >
+                <SelectTrigger data-testid="lead-agent-select">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Unassigned</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-1.5">

@@ -96,8 +96,9 @@ export async function removeLead(req: Request, res: Response): Promise<void> {
   try {
     await leadService.deleteLead(req.params.id);
     res.status(204).send();
-  } catch (e: any) {
-    if (e.code === 'P2025') {
+  } catch (e: unknown) {
+    const err = e as { code?: string };
+    if (err.code === 'P2025') {
       res.status(404).json({ error: 'Lead not found' });
       return;
     }
@@ -112,11 +113,12 @@ export async function assignLead(req: Request, res: Response): Promise<void> {
       assignedAgentId: agentId || null,
     });
     res.json(lead);
-  } catch (e: any) {
-    if (e.code === 'P2025') {
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string };
+    if (err.code === 'P2025') {
       res.status(404).json({ error: 'Lead not found' });
       return;
     }
-    res.status(400).json({ error: e.message || 'Failed to assign lead' });
+    res.status(400).json({ error: err.message || 'Failed to assign lead' });
   }
 }
