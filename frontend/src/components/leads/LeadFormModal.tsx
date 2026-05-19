@@ -22,7 +22,7 @@ import { TagInput } from './TagInput';
 import { leadsApi, agentsApi, type AgentOption } from '@/services/leads';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
-import type { Lead, CreateLeadData, LeadStatus } from '@/types';
+import type { Lead, CreateLeadData, LeadStatus, LeadSource } from '@/types';
 
 interface Props {
   open: boolean;
@@ -40,6 +40,7 @@ const EMPTY: CreateLeadData = {
   bhk: '',
   propertyType: '',
   status: 'NEW',
+  source: 'MANUAL',
   tags: [],
   notes: '',
   assignedAgentId: null,
@@ -68,6 +69,7 @@ export function LeadFormModal({ open, onClose, onSuccess, lead }: Props) {
         bhk: lead.bhk ?? '',
         propertyType: lead.propertyType ?? '',
         status: lead.status,
+        source: lead.source,
         tags: lead.tags,
         notes: lead.notes ?? '',
         assignedAgentId: lead.assignedAgentId,
@@ -263,6 +265,28 @@ export function LeadFormModal({ open, onClose, onSuccess, lead }: Props) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Source */}
+          <div className="space-y-1.5">
+            <Label>Lead Source</Label>
+            <Select
+              value={form.source || 'MANUAL'}
+              onValueChange={(v) => set('source')(v as LeadSource)}
+            >
+              <SelectTrigger data-testid="lead-source-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MANUAL">Manual</SelectItem>
+                <SelectItem value="FACEBOOK">Facebook</SelectItem>
+                <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+                <SelectItem value="WEBSITE">Website</SelectItem>
+                <SelectItem value="REFERRAL">Referral</SelectItem>
+                <SelectItem value="PROPERTY_PORTAL">Property Portal</SelectItem>
+                <SelectItem value="OTHER">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Tags */}

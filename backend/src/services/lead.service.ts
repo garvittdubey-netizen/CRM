@@ -1,4 +1,4 @@
-import { Prisma, LeadStatus } from '@prisma/client';
+import { Prisma, LeadStatus, LeadSource } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
 const AGENT_SELECT = { id: true, name: true, email: true } as const;
@@ -98,6 +98,7 @@ export interface LeadInput {
   bhk?: string | null;
   propertyType?: string | null;
   status?: string;
+  source?: string;
   tags?: string[];
   notes?: string | null;
   assignedAgentId?: string | null;
@@ -114,6 +115,7 @@ export async function createLead(input: LeadInput) {
       bhk: input.bhk || null,
       propertyType: input.propertyType || null,
       status: (input.status as LeadStatus) || 'NEW',
+      source: (input.source as LeadSource) || 'MANUAL',
       tags: input.tags ?? [],
       notes: input.notes?.trim() || null,
       assignedAgentId: input.assignedAgentId || null,
@@ -134,6 +136,7 @@ export async function updateLead(id: string, input: Partial<LeadInput>) {
   if (input.bhk !== undefined) data.bhk = input.bhk || null;
   if (input.propertyType !== undefined) data.propertyType = input.propertyType || null;
   if (input.status !== undefined) data.status = input.status as LeadStatus;
+  if (input.source !== undefined) data.source = input.source as LeadSource;
   if (input.tags !== undefined) data.tags = input.tags;
   if (input.notes !== undefined) data.notes = input.notes?.trim() || null;
   if (input.assignedAgentId !== undefined) data.assignedAgentId = input.assignedAgentId || null;

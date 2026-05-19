@@ -1,13 +1,29 @@
-import { useState, useEffect } from 'react';
-import { CalendarCheck2, CalendarClock, AlertOctagon, Users } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { CalendarCheck2, CalendarClock, AlertOctagon, Users, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UpcomingFollowUpsWidget } from '@/components/followups/UpcomingFollowUpsWidget';
 import { ActivityWidget } from '@/components/activities/ActivityWidget';
+import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
+import { LeadFunnelChart } from '@/components/dashboard/LeadFunnelChart';
+import { LeadsBreakdownChart } from '@/components/dashboard/LeadsBreakdownChart';
+import { FollowUpCompletionChart } from '@/components/dashboard/FollowUpCompletionChart';
+import { AgentPerformanceCards } from '@/components/dashboard/AgentPerformanceCards';
+import { CommunicationStatsCards } from '@/components/dashboard/CommunicationStatsCards';
 import { followUpsApi } from '@/services/followups';
+import { analyticsApi, rangeToParams } from '@/services/analytics';
 import { useAuth } from '@/hooks/useAuth';
-import type { FollowUpDashboardStats } from '@/types';
+import type {
+  FollowUpDashboardStats,
+  AnalyticsRange,
+  AnalyticsOverview,
+  LeadStatusBucket,
+  LeadSourceBucket,
+  FollowUpAnalytics,
+  AgentPerformanceRow,
+  CommunicationStats,
+} from '@/types';
 
 interface StatCardConfig {
   testIdKey: string;
@@ -16,60 +32,154 @@ interface StatCardConfig {
   iconColor: string;
   iconBg: string;
   description: string;
-  getValue: (s: FollowUpDashboardStats | null) => string;
+  loading: boolean;
+  value: string;
 }
 
-const STAT_CARDS: StatCardConfig[] = [
-  {
-    testIdKey: 'todays-followups',
-    title: "Today's Follow-ups",
-    icon: CalendarCheck2,
-    iconColor: 'text-blue-600 dark:text-blue-400',
-    iconBg: 'bg-blue-50 dark:bg-blue-950/50',
-    description: 'Scheduled for today',
-    getValue: (s) => (s ? String(s.today) : '—'),
-  },
-  {
-    testIdKey: 'overdue-followups',
-    title: 'Overdue',
-    icon: AlertOctagon,
-    iconColor: 'text-red-600 dark:text-red-400',
-    iconBg: 'bg-red-50 dark:bg-red-950/50',
-    description: 'Pending past their date',
-    getValue: (s) => (s ? String(s.overdue) : '—'),
-  },
-  {
-    testIdKey: 'upcoming-followups',
-    title: 'Upcoming',
-    icon: CalendarClock,
-    iconColor: 'text-emerald-600 dark:text-emerald-400',
-    iconBg: 'bg-emerald-50 dark:bg-emerald-950/50',
-    description: 'Pending and on schedule',
-    getValue: (s) => (s ? String(s.upcoming) : '—'),
-  },
-  {
-    testIdKey: 'leads',
-    title: 'Leads',
-    icon: Users,
-    iconColor: 'text-purple-600 dark:text-purple-400',
-    iconBg: 'bg-purple-50 dark:bg-purple-950/50',
-    description: 'In your pipeline',
-    getValue: () => '—',
-  },
-];
+function StatCard({ card }: { card: StatCardConfig }) {
+  const Icon = card.icon;
+  return (
+    <Card
+      className="hover:shadow-md transition-shadow duration-200"
+      data-testid={`stat-card-${card.testIdKey}`}
+    >
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
+        <div className={`rounded-md p-2 ${card.iconBg}`}>
+          <Icon size={16} className={card.iconColor} />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-heading font-bold">
+          {card.loading ? <Skeleton className="h-7 w-12" /> : card.value}
+        </div>
+        <span className="text-xs text-muted-foreground mt-1 block">{card.description}</span>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<FollowUpDashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const isAdmin = user?.role === 'ADMIN';
 
+  // Existing follow-up stats (legacy widget cards above the new analytics)
+  const [followUpStats, setFollowUpStats] = useState<FollowUpDashboardStats | null>(null);
+  const [followUpLoading, setFollowUpLoading] = useState(true);
+
+  // Analytics filter state
+  const [range, setRange] = useState<AnalyticsRange>('30d');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  // Analytics data
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
+  const [byStatus, setByStatus] = useState<LeadStatusBucket[] | null>(null);
+  const [bySource, setBySource] = useState<LeadSourceBucket[] | null>(null);
+  const [followUpAnalytics, setFollowUpAnalytics] = useState<FollowUpAnalytics | null>(null);
+  const [agentRows, setAgentRows] = useState<AgentPerformanceRow[] | null>(null);
+  const [commStats, setCommStats] = useState<CommunicationStats | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+
+  // Initial: pull the legacy follow-up dashboard stats once on mount.
   useEffect(() => {
     followUpsApi
       .stats()
-      .then(setStats)
-      .catch(() => setStats(null))
-      .finally(() => setLoading(false));
+      .then(setFollowUpStats)
+      .catch(() => setFollowUpStats(null))
+      .finally(() => setFollowUpLoading(false));
   }, []);
+
+  // Re-fetch every analytics endpoint whenever the date range changes.
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    const params = rangeToParams(range, from, to);
+    try {
+      const [ov, bs, src, fu, ag, cs] = await Promise.all([
+        analyticsApi.overview(params),
+        analyticsApi.leadsByStatus(params),
+        analyticsApi.leadsBySource(params),
+        analyticsApi.followUps(params),
+        analyticsApi.agents(params),
+        analyticsApi.communications(params),
+      ]);
+      setOverview(ov);
+      setByStatus(bs.data);
+      setBySource(src.data);
+      setFollowUpAnalytics(fu);
+      setAgentRows(ag.data);
+      setCommStats(cs);
+    } catch (e) {
+      console.error('analytics fetch failed', e);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [range, from, to]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  const handleRangeChange = (nextRange: AnalyticsRange, nextFrom: string, nextTo: string) => {
+    setRange(nextRange);
+    setFrom(nextFrom);
+    setTo(nextTo);
+  };
+
+  const topStatCards: StatCardConfig[] = [
+    {
+      testIdKey: 'todays-followups',
+      title: "Today's Follow-ups",
+      icon: CalendarCheck2,
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-50 dark:bg-blue-950/50',
+      description: 'Scheduled for today',
+      loading: followUpLoading,
+      value: followUpStats ? String(followUpStats.today) : '—',
+    },
+    {
+      testIdKey: 'overdue-followups',
+      title: 'Overdue',
+      icon: AlertOctagon,
+      iconColor: 'text-red-600 dark:text-red-400',
+      iconBg: 'bg-red-50 dark:bg-red-950/50',
+      description: 'Pending past their date',
+      loading: followUpLoading,
+      value: followUpStats ? String(followUpStats.overdue) : '—',
+    },
+    {
+      testIdKey: 'upcoming-followups',
+      title: 'Upcoming',
+      icon: CalendarClock,
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      iconBg: 'bg-emerald-50 dark:bg-emerald-950/50',
+      description: 'Pending and on schedule',
+      loading: followUpLoading,
+      value: followUpStats ? String(followUpStats.upcoming) : '—',
+    },
+    {
+      testIdKey: 'leads',
+      title: 'Total Leads',
+      icon: Users,
+      iconColor: 'text-purple-600 dark:text-purple-400',
+      iconBg: 'bg-purple-50 dark:bg-purple-950/50',
+      description: 'In selected range',
+      loading: analyticsLoading,
+      value: overview ? String(overview.totalLeads) : '—',
+    },
+  ];
+
+  // Conversion rate card (new) — gets its own row since it spans the analytics overview.
+  const conversionCard: StatCardConfig = {
+    testIdKey: 'conversion-rate',
+    title: 'Conversion Rate',
+    icon: TrendingUp,
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
+    iconBg: 'bg-emerald-50 dark:bg-emerald-950/50',
+    description: overview ? `${overview.wonLeads} won / ${overview.totalLeads} leads` : 'Won ÷ total leads',
+    loading: analyticsLoading,
+    value: overview ? `${overview.conversionRate}%` : '—',
+  };
 
   return (
     <div className="space-y-6 animate-fade-in" data-testid="dashboard-page">
@@ -88,14 +198,51 @@ export default function DashboardPage() {
         </Badge>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid — legacy follow-up cards + total leads */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="stats-grid">
-        {STAT_CARDS.map((card) => (
-          <StatCard key={card.testIdKey} card={card} stats={stats} loading={loading} />
+        {topStatCards.map((card) => (
+          <StatCard key={card.testIdKey} card={card} />
         ))}
       </div>
 
-      {/* Content grid */}
+      {/* Analytics filter + section header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
+        <div>
+          <h2 className="text-lg font-heading font-semibold" data-testid="analytics-heading">
+            Analytics & Reporting
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {isAdmin ? 'Tenant-wide metrics across every agent.' : 'Your personal performance metrics.'}
+          </p>
+        </div>
+        <DateRangeFilter range={range} from={from} to={to} onChange={handleRangeChange} />
+      </div>
+
+      {/* Conversion + Communication stats row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" data-testid="analytics-stat-row">
+        <StatCard card={conversionCard} />
+        <div className="lg:col-span-4">
+          <CommunicationStatsCards stats={commStats} loading={analyticsLoading} />
+        </div>
+      </div>
+
+      {/* Charts grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <LeadFunnelChart data={byStatus} loading={analyticsLoading} />
+        <LeadsBreakdownChart data={byStatus} loading={analyticsLoading} variant="status" />
+        <LeadsBreakdownChart data={bySource} loading={analyticsLoading} variant="source" />
+        <FollowUpCompletionChart data={followUpAnalytics} loading={analyticsLoading} />
+      </div>
+
+      {/* Agent performance */}
+      <div className="space-y-3" data-testid="agent-performance-section">
+        <h2 className="text-lg font-heading font-semibold">
+          {isAdmin ? 'Agent Performance' : 'Your Performance'}
+        </h2>
+        <AgentPerformanceCards rows={agentRows} loading={analyticsLoading} selfView={!isAdmin} />
+      </div>
+
+      {/* Original content grid (preserve existing widgets) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <UpcomingFollowUpsWidget />
@@ -103,34 +250,5 @@ export default function DashboardPage() {
         <ActivityWidget />
       </div>
     </div>
-  );
-}
-
-function StatCard({
-  card, stats, loading,
-}: {
-  card: StatCardConfig;
-  stats: FollowUpDashboardStats | null;
-  loading: boolean;
-}) {
-  const Icon = card.icon;
-  return (
-    <Card
-      className="hover:shadow-md transition-shadow duration-200"
-      data-testid={`stat-card-${card.testIdKey}`}
-    >
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
-        <div className={`rounded-md p-2 ${card.iconBg}`}>
-          <Icon size={16} className={card.iconColor} />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-heading font-bold">
-          {loading ? <Skeleton className="h-7 w-12" /> : card.getValue(stats)}
-        </div>
-        <span className="text-xs text-muted-foreground mt-1 block">{card.description}</span>
-      </CardContent>
-    </Card>
   );
 }

@@ -33,6 +33,7 @@ model Lead {
   bhk               String?
   propertyType      String?
   status            LeadStatus @default(NEW)
+  source            LeadSource @default(MANUAL)
   tags              String[]
   notes             String?    @db.Text
   assignedAgentId   String?
@@ -83,6 +84,16 @@ enum FollowUpStatus {
   PENDING
   COMPLETED
   MISSED
+}
+
+enum LeadSource {
+  FACEBOOK
+  WHATSAPP
+  WEBSITE
+  REFERRAL
+  MANUAL
+  PROPERTY_PORTAL
+  OTHER
 }
 
 model Communication {

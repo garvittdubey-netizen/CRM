@@ -1,0 +1,59 @@
+{
+  "summary": "Phase 4 Dashboard Analytics module tested end-to-end. Backend pytest 28/28 PASS against the live preview URL (auth regression, JWT enforcement on all 6 analytics endpoints, overview/leads-by-status/leads-by-source/followups/agents/communications shape & math, RBAC scoping admin>=agent totals, custom range echo, Lead.source persistence with default=MANUAL). Frontend Playwright UX 100% PASS: all 9 dashboard data-testids render, all 4 date-range buttons + custom apply trigger correct ?range= / ?from=&to= calls, Lead form lead-source-select exposes all 7 LeadSource options, admin sees agent-performance-grid with all AGENT cards, AGENT login sees exactly one self card. Critical blocker found and FIXED: frontend was failing to boot (502 across the app) because recharts requires the react-is peer dep which was not installed — added react-is via yarn and restarted frontend.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "spec_results": {
+    "auth_regression": "PASS — admin@realestate.com / Admin@2036 and agent@realestate.com / Agent@2036 both authenticate, role echo correct.",
+    "GET /api/analytics/overview": "PASS — returns {totalLeads, wonLeads, lostLeads, conversionRate, range:{from,to,label}}. range query honored for today/7d/30d. Conversion math = round(won/total*100, 2).",
+    "GET /api/analytics/leads-by-status": "PASS — returns {data:[{status,count}]} with exactly the 6 expected LeadStatus buckets (NEW, CONTACTED, QUALIFIED, NEGOTIATING, WON, LOST).",
+    "GET /api/analytics/leads-by-source": "PASS — returns {data:[{source,count}]} with all 7 LeadSource buckets (FACEBOOK, WHATSAPP, WEBSITE, REFERRAL, MANUAL, PROPERTY_PORTAL, OTHER).",
+    "GET /api/analytics/followups": "PASS — returns {byStatus, total, completed, completionRate}; total == sum(byStatus.count); completionRate math verified.",
+    "GET /api/analytics/agents (admin)": "PASS — list includes every AGENT user; rows expose agentId/agentName/agentEmail/assignedLeads/contactedLeads/wonLeads/lostLeads/conversionRate.",
+    "GET /api/analytics/agents (agent)": "PASS — returns exactly 1 row (selfView) belonging to the calling agent.",
+    "GET /api/analytics/communications": "PASS — returns {messagesSent, messagesReceived, callsLogged, total} with total == sum of the three.",
+    "RBAC scoping": "PASS — agent overview/followups/communications totals are <= admin totals for the same 30d window.",
+    "Custom range echo": "PASS — ?range=custom&from=YYYY-MM-DD&to=YYYY-MM-DD returns range.label='custom' and echoes from/to (ISO).",
+    "JWT enforcement": "PASS — all 6 analytics endpoints return 401 without a Bearer token.",
+    "Lead.source persistence": "PASS — POST /api/leads with source=FACEBOOK persists and is returned by GET; omitting source defaults to MANUAL; pre-existing Demo Lead has source='MANUAL' (migration honored).",
+    "Frontend dashboard testids": "PASS — stats-grid, date-range-filter, analytics-stat-row, lead-funnel-chart-card, leads-by-status-card, leads-by-source-card, followup-completion-card, agent-performance-grid, communication-stats-grid all rendered for admin and agent.",
+    "Frontend date range UX": "PASS — range-today/range-7d/range-30d/range-custom all present; clicking range-7d kicks off all 6 /api/analytics/* requests with ?range=7d; range-custom reveals two <input type=\"date\"> + range-apply-button; clicking apply issues requests with ?range=custom&from=2026-01-01&to=2026-01-15.",
+    "Frontend Lead form source select": "PASS — [data-testid=lead-source-select] visible inside LeadFormModal; opening exposes exactly 7 options (Manual, Facebook, WhatsApp, Website, Referral, Property Portal, Other).",
+    "Agent dashboard scoping": "PASS — Test Agent login shows only own card under agent-performance-grid (1 child) and 'Your personal performance metrics.' subtitle; admin sees 'Tenant-wide metrics across every agent.' subtitle.",
+    "No-regression on /leads /followups /communications": "PASS — pages load without errors. (Note: the sidebar route is /activity singular, not /activities; /activity page also loads with the live activity feed.)"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_analytics.py",
+    "/app/test_reports/pytest/analytics_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BLOCKER (FIXED by this iteration): /app/frontend/package.json did not declare react-is, but recharts/es6/util/ReactUtils.js imports it. With Vite 6 + esbuild prebundle this caused 'Could not resolve react-is' on boot and supervisor stayed in STARTING. Installed via `yarn add react-is` (react-is@19.2.6). Main agent should keep this dep in package.json going forward — verified frontend now boots and serves 200.",
+    "analytics.service.ts buildLeadScope/buildFollowUpScope/buildCommScope correctly gate on userRole==='AGENT' and never trust client input — good RBAC posture.",
+    "resolveRange falls back to 30d when range=custom but from/to are missing/invalid — defensive and aligns with controller never throwing 400 for malformed dates. Acceptable; consider returning a 400 here for explicit feedback if product wants strict validation.",
+    "getAgentPerformance fetches ALL AGENTs (even those with zero leads in window) — good for admin UX so newly-onboarded agents appear at 0. Confirmed.",
+    "Communications stats only buckets WHATSAPP-OUTBOUND, WHATSAPP-INBOUND, CALL (any direction). If EMAIL/SMS types are introduced later they will be silently dropped — note for future.",
+    "Pre-existing TS warnings in LeadDetailPage.tsx and api.ts noted in the request are unrelated to this module and not regressed by this iteration."
+  ],
+  "updated_files": [
+    "/app/frontend/package.json (added react-is via yarn add)",
+    "/app/frontend/yarn.lock (lockfile update)",
+    "/app/backend/tests/test_analytics.py (new — 28 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (28/28 pytest)",
+    "frontend": "100% (all data-testids present, all date-range flows trigger correct API calls, RBAC selfView verified, lead-source-select shows 7 options)"
+  },
+  "test_credentials": "Admin admin@realestate.com / Admin@2036, Agent agent@realestate.com / Agent@2036.",
+  "seed_data_creation": "Backend test suite POSTs two TEST_AnalyticsLead_* leads (one with source=FACEBOOK, one default MANUAL) into Neon. Phones are timestamp-derived (+9199xxxxxxxx, +9198xxxxxxxx). Safe to leave or cleanup via DELETE /api/leads/{id}.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "react-is is now an explicit dep — do NOT remove it; recharts will not build without it. Frontend runs via supervisor on port 3000 (vite v6). Backend node_backend on port 8002 behind the FastAPI proxy on 8001 (per iteration_6/7 notes). Auth login response shape is {token, user:{role,...}}. Lead create payload key is `fullName` (not `name`). Activity sidebar route is `/activity` (singular). Custom date range submits ISO yyyy-MM-DD; backend resolveRange clamps to UTC start/end of day. Pytest results at /app/test_reports/pytest/analytics_results.xml.",
+  "rca of the issue": "Frontend 502 on every route → root cause: recharts (newly introduced for the dashboard charts) has `import { isFragment } from 'react-is'` but react-is was not in /app/frontend/package.json dependencies. Vite/esbuild bailed out at startup with ERROR: Could not resolve 'react-is' and supervisor kept restarting the process. Mitigation applied: `cd /app/frontend && yarn add react-is` → resolved to react-is@19.2.6, then `sudo supervisorctl restart frontend`. Verified: curl http://localhost:3000/ → 200; full Playwright suite passes."
+}

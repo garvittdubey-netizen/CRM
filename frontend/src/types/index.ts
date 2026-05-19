@@ -23,6 +23,15 @@ export type UserRole = 'ADMIN' | 'AGENT';
 
 export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'NEGOTIATING' | 'WON' | 'LOST';
 
+export type LeadSource =
+  | 'FACEBOOK'
+  | 'WHATSAPP'
+  | 'WEBSITE'
+  | 'REFERRAL'
+  | 'MANUAL'
+  | 'PROPERTY_PORTAL'
+  | 'OTHER';
+
 export interface Lead {
   id: string;
   fullName: string;
@@ -33,6 +42,7 @@ export interface Lead {
   bhk: string | null;
   propertyType: string | null;
   status: LeadStatus;
+  source: LeadSource;
   tags: string[];
   notes: string | null;
   assignedAgentId: string | null;
@@ -58,6 +68,7 @@ export interface CreateLeadData {
   bhk?: string;
   propertyType?: string;
   status?: LeadStatus;
+  source?: LeadSource;
   tags?: string[];
   notes?: string;
   assignedAgentId?: string | null;
@@ -208,4 +219,76 @@ export interface ActivitiesResponse {
   page: number;
   limit: number;
   pages: number;
+}
+
+// ── Dashboard Analytics Module ───────────────────────────────────────────────
+
+export type AnalyticsRange = 'today' | '7d' | '30d' | 'custom';
+
+export interface AnalyticsRangeParams {
+  range: AnalyticsRange;
+  from?: string;
+  to?: string;
+}
+
+export interface AnalyticsOverview {
+  range: { from: string; to: string; label: AnalyticsRange };
+  totalLeads: number;
+  wonLeads: number;
+  lostLeads: number;
+  /** 0..100, two decimals */
+  conversionRate: number;
+}
+
+export interface LeadStatusBucket {
+  status: LeadStatus;
+  count: number;
+}
+
+export interface LeadsByStatusResponse {
+  data: LeadStatusBucket[];
+}
+
+export interface LeadSourceBucket {
+  source: LeadSource;
+  count: number;
+}
+
+export interface LeadsBySourceResponse {
+  data: LeadSourceBucket[];
+}
+
+export interface FollowUpStatusBucket {
+  status: FollowUpStatus;
+  count: number;
+}
+
+export interface FollowUpAnalytics {
+  byStatus: FollowUpStatusBucket[];
+  total: number;
+  completed: number;
+  /** 0..100, two decimals */
+  completionRate: number;
+}
+
+export interface AgentPerformanceRow {
+  agentId: string;
+  agentName: string;
+  agentEmail: string;
+  assignedLeads: number;
+  contactedLeads: number;
+  wonLeads: number;
+  lostLeads: number;
+  conversionRate: number;
+}
+
+export interface AgentPerformanceResponse {
+  data: AgentPerformanceRow[];
+}
+
+export interface CommunicationStats {
+  messagesSent: number;
+  messagesReceived: number;
+  callsLogged: number;
+  total: number;
 }
