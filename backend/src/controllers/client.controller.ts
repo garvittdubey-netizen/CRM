@@ -49,10 +49,14 @@ export async function addClient(req: Request, res: Response): Promise<void> {
   }
   try {
     // AGENT always auto-owns what they create; ADMIN may assign anyone or leave
-    // unassigned (matches the Lead module exactly).
+    // unassigned (matches the Lead module exactly). For ADMIN, an explicit
+    // `null` in the body is honoured as "unassigned" — only `undefined`
+    // (i.e. the field was omitted) falls back to the admin's own id.
     const assignedAgentId =
       req.user!.role === 'ADMIN'
-        ? req.body.assignedAgentId ?? req.user!.id
+        ? req.body.assignedAgentId === undefined
+          ? req.user!.id
+          : req.body.assignedAgentId
         : req.user!.id;
 
     const client = await clientService.createClient({
