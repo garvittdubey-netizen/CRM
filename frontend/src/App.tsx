@@ -10,6 +10,7 @@ import LeadDetailPage from '@/pages/LeadDetailPage';
 import FollowUpsPage from '@/pages/FollowUpsPage';
 import CommunicationsPage from '@/pages/CommunicationsPage';
 import ActivitiesPage from '@/pages/ActivitiesPage';
+import PipelinePage from '@/pages/PipelinePage';
 import UsersPage from '@/pages/UsersPage';
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/leads" element={<LeadsPage />} />
             <Route path="/leads/:id" element={<LeadDetailPage />} />
+            <Route path="/pipeline" element={<PipelinePage />} />
             <Route path="/followups" element={<FollowUpsPage />} />
             <Route path="/communications" element={<CommunicationsPage />} />
             <Route path="/activity" element={<ActivitiesPage />} />

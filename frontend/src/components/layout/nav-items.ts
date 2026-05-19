@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   UserCog,
+  Kanban,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -27,6 +28,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard,   label: 'Dashboard',      href: '/dashboard' },
   { icon: UserPlus,          label: 'Leads',          href: '/leads' },
+  { icon: Kanban,            label: 'Pipeline',       href: '/pipeline' },
   { icon: CalendarClock,     label: 'Follow-ups',     href: '/followups' },
   { icon: MessageSquareText, label: 'Communications', href: '/communications' },
   { icon: ActivityIcon,      label: 'Activity',       href: '/activity' },

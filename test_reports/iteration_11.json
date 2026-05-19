@@ -1,0 +1,44 @@
+{
+  "summary": "Phase 7 Pipeline (Kanban) frontend-only review. Verified login regression, sidebar/mobile nav 'Pipeline' between Leads & Follow-ups, /pipeline route accessible to both ADMIN & AGENT (no role guard), 6 columns with count badges, real Neon leads rendered, RBAC inherited (AGENT sees only own 2 cards, ADMIN sees 9), card content (name/source badge/phone/agent initials avatar/unassigned variant), drag-and-drop with optimistic UI + PUT /api/leads/:id (status only) returning 200 and counts shifting correctly (NEW 2→1, CONTACTED 3→4), URL state for search/agent/source filters with refresh persistence, clear-filters button resets URL, DragOverlay rendered, dropzone highlight class wiring correct, mobile (390x844) board has overflow-x-auto with fixed 280px columns, mobile drawer includes mobile-nav-pipeline in correct order. No regressions found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Drop-zone highlight relies on `isOver` from useDroppable — works, but the original spec mentioned ring-2 ring-primary/30 background tint always-on when a drag is in progress for any column. Current impl applies ring only to the column being hovered (isOver), and a lighter bg-muted/20 to other columns while dragging. This is a UX choice that may differ slightly from spec wording but is sensible. Confirm with product if all columns should glow during any drag.",
+    "PipelinePage.tsx fetches up to 500 leads at mount with no pagination/virtualisation. Fine for current Neon data (<10 leads) but consider virtualization or per-column lazy load once a tenant accumulates hundreds of leads.",
+    "In LeadCard.tsx the source badge label maps PROPERTY_PORTAL → 'Portal' (line 24). Spec said label should be 'Portal' (matches) — but the source filter dropdown shows 'Property Portal'. Slight inconsistency, but acceptable as the badge needs to be compact.",
+    "Optimistic rollback uses window.alert which is non-blocking but jarring. Consider sonner/toast for parity with rest of the app.",
+    "useDraggable on the lead.id means a card row that happens to have lead.id matching a status string would collide. Practically impossible (UUIDs vs enum strings) but worth noting; safer would be `card:${lead.id}` and `col:${status}` namespaces."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100%"},
+  "test_credentials": "admin@realestate.com / Admin@2036, agent@realestate.com / Agent@2036",
+  "seed_data_creation": "None. Used existing Neon data (9 leads as ADMIN, 2 as AGENT).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Pipeline page fully working. For drag-drop in Playwright, use mouse.move/down/up sequence with ~20 incremental moves and drop near TOP of pipeline-dropzone-{status} (avoid overlapping an existing card which can intercept). Wait at least 4-5s after mount before reading pipeline-count-{status} as the dual-fetch (leads + follow-ups) is slower than expected. PUT /api/leads/:id with body {status:'CONTACTED'} returns 200; on AGENT trying to update a non-owned lead, expect a 4xx and the optimistic update should roll back + window.alert (untested in this iteration since no cross-agent lead was available for the seeded agent).",
+  "verified_flows": [
+    "Admin login → /pipeline accessible",
+    "Agent login → /pipeline accessible (no role guard)",
+    "Sidebar order: Dashboard > Leads > Pipeline > Follow-ups > Communications > Activity > ...",
+    "Mobile drawer order matches",
+    "6 columns render with correct status labels and 'Negotiating' label for NEGOTIATING",
+    "ADMIN saw 9 leads (NEW:2, CONTACTED:3, QUALIFIED:2, NEGOTIATING:1, WON:1, LOST:0)",
+    "AGENT saw only 2 own leads (Demo Lead + Priya Sharma) in CONTACTED — RBAC inherited",
+    "Card click navigates to /leads/:id",
+    "Drag handle (GripVertical) drag → drop on dropzone fires PUT 200, counts update optimistically",
+    "Search input syncs ?search=, source filter syncs ?source=, clear-filters resets URL",
+    "Refresh with ?search=Priya&source=MANUAL restores both filter states",
+    "Mobile 390x844 board has overflow-x-auto, columns at 280px",
+    "Source badge labels render (Facebook/WhatsApp/Website/Referral/Manual/Portal/Other)",
+    "Agent footer shows initials avatar + first name; Unassigned variant present"
+  ]
+}
