@@ -13,7 +13,8 @@ cloudinary.config({
   secure: true,
 });
 
-const ALLOWED_FOLDER_PREFIXES = ['properties/', 'properties'];
+const ALLOWED_FOLDERS = new Set<string>(['properties']);
+const ALLOWED_FOLDER_PREFIXES = ['properties/'];
 
 export interface SignedUploadPayload {
   signature: string;
@@ -39,7 +40,10 @@ export function signUpload(folder: string): SignedUploadPayload {
   }
 
   const safeFolder = folder?.trim() || process.env.CLOUDINARY_UPLOAD_FOLDER || 'properties';
-  if (!ALLOWED_FOLDER_PREFIXES.some((p) => safeFolder.startsWith(p))) {
+  const isAllowed =
+    ALLOWED_FOLDERS.has(safeFolder) ||
+    ALLOWED_FOLDER_PREFIXES.some((p) => safeFolder.startsWith(p));
+  if (!isAllowed) {
     throw new Error(`Folder "${safeFolder}" is not permitted`);
   }
 

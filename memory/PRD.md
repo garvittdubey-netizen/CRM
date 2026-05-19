@@ -1,11 +1,13 @@
 # PRD — Real Estate CRM
 
-## Latest iteration (Phase 7.0)
-> Build Lead Pipeline (Kanban Board) only.
-> Backend: reuse existing lead status data. No new models.
-> Frontend: Kanban with 6 columns (NEW/CONTACTED/QUALIFIED/NEGOTIATING/WON/LOST),
-> drag-and-drop status updates, lead cards (name/phone/source/agent/follow-up badge),
-> search & filters with URL persistence, responsive, reuse existing components.
+## Latest iteration (Phase 8.0)
+> Build Properties module only.
+> Backend: Property model (title, propertyType, location, city, price, area+areaUnit,
+> bedrooms, bathrooms, status AVAILABLE/SOLD/RESERVED, description, images[], ownerAgentId)
+> + CRUD + search + filters (type/city/price-range/status) + matching-leads endpoint.
+> Frontend: /properties (grid/list toggle, filters sidebar, cards) + /properties/:id
+> (gallery + matching leads sidebar). Real Cloudinary multi-image upload (cloud dd61mc8me).
+> Real Neon Postgres only. No mocks. ADMIN+AGENT ownership RBAC mirrored from Leads.
 
 ## Architecture
 - Frontend: React 18 + Vite + TS + Tailwind + Shadcn (port 3000), `recharts`, `@dnd-kit/core` + `@dnd-kit/sortable` for Kanban.
@@ -42,16 +44,27 @@
   - Card click → /leads/:id; drag handle is grip icon only
   - Responsive horizontal scroll on mobile (280px columns)
   - Sidebar nav "Pipeline" between Leads and Follow-ups
+- [x] **Phase 8.0 Properties module + Cloudinary uploads (iteration_12, 100%, 2026-05-19)**
+  - Prisma migration `20260519200643_add_property_model` (Property + PropertyStatus + AreaUnit, User.properties back-relation)
+  - Backend `/api/properties` GET/POST/PUT/DELETE + PATCH `/:id/assign` (ADMIN only) + GET `/:id/matching-leads`
+  - Cloudinary direct upload via signed signature (`/api/uploads/cloudinary-signature`, cloud `dd61mc8me`, folder allow-list tightened to `properties` exact OR `properties/...` prefix)
+  - RBAC: ADMIN any property; AGENT only own; AGENT cannot reassign owner; AGENT cannot set ownerAgentId on POST (always self)
+  - `/properties` page: grid/list toggle (localStorage `properties:view`), sticky filter sidebar (search/type/city/status/min-max price), debounced search, paginated
+  - `/properties/:id`: image gallery (hero + thumbs + prev/next), stat tiles, description, owner agent, "Matching Leads" sidebar (read-only, scored, RBAC-scoped, quick-action buttons to /leads/:id and /communications?leadId=)
+  - PropertyImageUploader: drag-drop, XHR progress per file, blob preview, inline error per file, max 8MB + 10 files, remove uploaded URLs
+  - 35/35 backend pytest pass incl. real Cloudinary multipart upload; all frontend RBAC flows verified for both roles
 
 ## Backlog (prioritized)
-- P1: Properties / Clients / Deals modules.
+- P1: Clients / Deals modules.
 - P2: Time-series trend charts; PDF export for analytics.
-- P2: Replace window.alert with sonner/toast (especially for Pipeline rollback notifications).
+- P2: Replace window.alert with sonner/toast (especially for Pipeline rollback notifications and Property delete failures).
 - P3: Virtualize Pipeline board if a tenant exceeds ~500 leads.
 - P3: Clean up pre-existing TS warnings in `LeadDetailPage.tsx` + `services/api.ts`.
 - P3: Add `DialogDescription` to all modals.
+- P3: Property — add `agentDashboardView` (count of own listings, sold-this-month, etc.)
+- P3: Property — bulk image reorder via drag handles.
 
 ## Next tasks
-1. Properties module (Prisma model + CRUD + UI).
-2. Clients & Deals modules.
+1. Clients module (CRUD + tagging + link to Lead + activity history).
+2. Deals module (Property + Client + Agent + amount + status pipeline).
 3. Toast notification system (sonner) to replace window.alert site-wide.
