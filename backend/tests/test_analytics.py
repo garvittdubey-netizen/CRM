@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://analytics-dash-127.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://light-theme-icons.preview.emergentagent.com").rstrip("/")
 
 ADMIN = {"email": "admin@realestate.com", "password": "Admin@2036"}
 AGENT = {"email": "agent@realestate.com", "password": "Agent@2036"}
