@@ -287,6 +287,10 @@ For production deployment:
 - Mobile sidebar (hamburger menu) does not show a drawer yet — needs `Sheet` component
 - `/properties`, `/clients`, `/deals`, `/reports`, `/users`, `/settings` routes return 404 (not built yet)
 
+### Fixed Issues
+
+- [x] api.ts 401 interceptor now excludes `/auth/login` and `/auth/register` from redirect — login error messages display correctly
+
 ---
 
 ## Git Workflow
