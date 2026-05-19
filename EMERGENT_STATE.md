@@ -36,11 +36,13 @@
 - [x] Dashboard page structure (stats cards, placeholders)
 - [x] Dark/Light mode auto-toggle (next-themes)
 - [x] Shadcn UI components (Button, Card, Input, Label, Badge, etc.)
-- [x] **Lead Management module (CRUD + search + filters + pagination + agent assignment + tags + notes)**
+- [x] **Lead Management module (CRUD + search + filters + pagination + agent assignment + tags + notes + source)**
   - Backend: `/api/leads` (GET/POST), `/api/leads/:id` (GET/PUT/DELETE), `/api/leads/:id/assign` (PATCH)
   - Frontend: `LeadsPage`, `LeadDetailPage`, `LeadFormModal`, `StatusBadge`, `TagInput`
   - Role rules: ADMIN sees all; AGENT sees only own assigned leads; DELETE + ASSIGN restricted to ADMIN
+  - `LeadSource` enum added Phase 4.0 (default `MANUAL`); existing leads migrated to MANUAL.
   - Tested: 17/17 backend + 13/13 frontend E2E (iteration_2.json)
+- [x] **Dashboard Analytics & Reporting module (Phase 4.0)** — see Phase 4.0 below
 
 ### Pending Features
 - [ ] Properties module (listing, CRUD)
@@ -123,6 +125,29 @@
   - **Frontend-only change** — backend, Prisma, auth, and architecture untouched.
   - Verified live: first chip click → "Hello, thanks for contacting us."; second chip click → "Hello, thanks for contacting us. Sending property details shortly." (append behaviour).
 
+**Phase 4.0: Dashboard Analytics & Reporting** — COMPLETE & VERIFIED (2026-05-19, iteration_8.json)
+  - **Lead.source field added** via Prisma migration `20260519173925_add_lead_source`:
+    - New enum `LeadSource`: `FACEBOOK | WHATSAPP | WEBSITE | REFERRAL | MANUAL | PROPERTY_PORTAL | OTHER`.
+    - `Lead.source` defaults to `MANUAL`; all pre-existing leads were safely back-filled to `MANUAL` by the migration default.
+    - `LeadFormModal` exposes the `lead-source-select` dropdown (all 7 options) on create/edit.
+  - **Backend API surface** (all JWT-protected, RBAC scoped via `buildLeadScope` / `buildFollowUpScope` / `buildCommScope`):
+    - `GET /api/analytics/overview`           → `{totalLeads, wonLeads, lostLeads, conversionRate, range:{from,to,label}}`
+    - `GET /api/analytics/leads-by-status`    → `{data:[{status, count}]}` (6 LeadStatus buckets, fixed order)
+    - `GET /api/analytics/leads-by-source`    → `{data:[{source, count}]}` (7 LeadSource buckets, fixed order)
+    - `GET /api/analytics/followups`          → `{byStatus, total, completed, completionRate}`
+    - `GET /api/analytics/agents`             → `{data:[{agentId, agentName, agentEmail, assignedLeads, contactedLeads, wonLeads, lostLeads, conversionRate}]}`
+    - `GET /api/analytics/communications`     → `{messagesSent, messagesReceived, callsLogged, total}`
+    - Shared query params: `range = today | 7d | 30d | custom` + `from` / `to` (ISO YYYY-MM-DD) for custom. `resolveRange` falls back to 30d on missing/invalid inputs.
+  - **RBAC posture**: ADMIN sees tenant-wide aggregates and every AGENT row. AGENT sees only rows tied to leads/follow-ups/communications they own; `/api/analytics/agents` returns exactly one self-card for AGENT callers.
+  - **Frontend additions** (no redesign of existing widgets):
+    - `DashboardPage` extended with: `DateRangeFilter` (`range-today | range-7d | range-30d | range-custom` + `range-from-input` / `range-to-input` / `range-apply-button`).
+    - Charts: `LeadFunnelChart` (horizontal bar), `LeadsBreakdownChart` reused for `leads-by-status-card` and `leads-by-source-card`, `FollowUpCompletionChart` (donut with center % label).
+    - Cards: `CommunicationStatsCards` (messages sent / received / calls / total), `AgentPerformanceCards` (grid for admin, single self-card for agent).
+    - Existing `UpcomingFollowUpsWidget` and `ActivityWidget` preserved at the bottom — no layout regression.
+  - **Charts library**: `recharts` 3.8.1 + `react-is` 19.2.6 (recharts peer dep) + a thin Shadcn-style `ChartContainer` wrapper at `/app/frontend/src/components/ui/chart.tsx`.
+  - **Tested**: 28/28 backend pytest assertions (auth regression, JWT enforcement on all 6 endpoints, response shapes, math, RBAC scoping admin>=agent totals, custom range echo, Lead.source default behaviour) + 100% frontend Playwright UX (all data-testids render, date-range buttons fire correct `?range=` / `?from=&to=` calls, lead-source-select exposes all 7 options, agent self-view confirmed). See `/app/test_reports/iteration_8.json`.
+  - **Environment**: backend supervisor program `node_backend` recreated at `/etc/supervisor/conf.d/supervisord_node_backend.conf` (port 8002) during this session.
+
 ---
 
 ## Database
@@ -153,6 +178,7 @@
 | bhk               | String?    | e.g. "2BHK", "3BHK"                         |
 | propertyType      | String?    | Apartment / Villa / Plot / Commercial       |
 | status            | LeadStatus | default: NEW                                |
+| source            | LeadSource | default: MANUAL (Phase 4.0)                 |
 | tags              | String[]   | Postgres text[]                             |
 | notes             | String?    | @db.Text                                    |
 | assignedAgentId   | String?    | FK → users.id                               |
@@ -166,6 +192,9 @@
 
 **Enum: LeadStatus**
 - `NEW` (default) → `CONTACTED` → `QUALIFIED` → `NEGOTIATING` → `WON` / `LOST`
+
+**Enum: LeadSource** (added Phase 4.0)
+- `FACEBOOK | WHATSAPP | WEBSITE | REFERRAL | MANUAL | PROPERTY_PORTAL | OTHER` (default: `MANUAL`)
 
 ### Database Connection
 
