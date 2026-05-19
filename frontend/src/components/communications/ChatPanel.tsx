@@ -11,6 +11,19 @@ import { communicationsApi } from '@/services/communications';
 import { extractApiError } from '@/services/api';
 import type { Communication, ConversationSummary } from '@/types';
 
+/**
+ * Predefined message snippets shown as chips above the composer. Clicking a
+ * chip appends the snippet to the current draft (or replaces it when empty),
+ * so agents can still edit before hitting send.
+ */
+const QUICK_REPLIES = [
+  'Hello, thanks for contacting us.',
+  'Sending property details shortly.',
+  'Are you available for a site visit?',
+  'Can we schedule a call?',
+  'Please share your requirements.',
+] as const;
+
 interface Props {
   /** Selected conversation summary (already loaded by the parent). */
   conversation: ConversationSummary;
@@ -144,6 +157,26 @@ export function ChatPanel({ conversation, onAfterAction }: Props) {
 
       {/* Composer + actions */}
       <div className="border-t p-3 space-y-2">
+        {/* Quick replies — single-click insert. Append when draft is non-empty,
+            otherwise replace. Agents can still edit before sending. */}
+        <div className="flex flex-wrap gap-1.5" data-testid="quick-replies">
+          {QUICK_REPLIES.map((text, idx) => (
+            <button
+              type="button"
+              key={text}
+              onClick={() =>
+                setDraft((cur) => (cur.trim() ? `${cur.trim()} ${text}` : text))
+              }
+              disabled={!conversation.phone || sending}
+              className="text-[11px] px-2.5 py-1 rounded-full border bg-card hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:border-emerald-900 dark:hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              data-testid={`quick-reply-${idx}`}
+              title="Insert into message"
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+
         {error && (
           <div className="flex items-start gap-2 p-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md" data-testid="chat-error">
             <AlertCircle size={13} className="shrink-0 mt-0.5" />

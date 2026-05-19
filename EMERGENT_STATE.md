@@ -111,6 +111,18 @@
   - **No backend changes** in this iteration — confirmed end-to-end (iteration_6 pytest still 15/15 green).
   - Verified by testing agent: 8/8 UX specs PASS, including unread-badge verified by injecting an INBOUND WhatsApp webhook with a valid HMAC-SHA256 signature.
 
+**Phase 3.2: Quick Replies in chat composer** — COMPLETE (2026-05-19)
+  - 5 predefined chips above the message input in `ChatPanel.tsx` (`quick-replies` + `quick-reply-{0..4}` test IDs):
+    1. "Hello, thanks for contacting us."
+    2. "Sending property details shortly."
+    3. "Are you available for a site visit?"
+    4. "Can we schedule a call?"
+    5. "Please share your requirements."
+  - Click behaviour: appends to current draft with a space when the textarea is non-empty, otherwise replaces. Agents can edit before sending — the textarea is the source of truth.
+  - Chips are disabled when the lead has no phone or a send is in flight (matches the rest of the composer's enabled-state logic).
+  - **Frontend-only change** — backend, Prisma, auth, and architecture untouched.
+  - Verified live: first chip click → "Hello, thanks for contacting us."; second chip click → "Hello, thanks for contacting us. Sending property details shortly." (append behaviour).
+
 ---
 
 ## Database
