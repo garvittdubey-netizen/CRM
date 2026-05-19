@@ -1,0 +1,47 @@
+{
+  "summary": "Phase 6 mobile responsiveness + sidebar polish — all 17 frontend test scenarios PASS. Verified desktop sidebar collapse/expand with data-collapsed attr, width 260↔68 smooth transition, localStorage 'sidebar:collapsed' persistence (1/0) across page reload, justify-center on collapsed nav items, Radix tooltip on hover when collapsed, active-route bg-primary preserved when collapsed, main-content resizes by ~192px to match sidebar delta. Mobile (390px): desktop sidebar hidden (md:flex), mobile-menu-button visible, mobile-sidebar NOT in DOM until opened (Radix Dialog unmount), mobile-nav-* links navigate AND close drawer, Escape/overlay close works, RBAC enforced (AGENT sees no mobile-nav-users). Regression: admin & agent login, dashboard, leads table (with import/export + overflow-x-auto), users, communications, followups all accessible. Dashboard grids correctly stack to 1-col on mobile. No body horizontal overflow on /dashboard or /leads at 390px.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "PRE-EXISTING (not Phase 6): /app/frontend/src/pages/LeadDetailPage.tsx has TS errors — missing useState for notesError/setNotesError (lines 84, 90, 261, 266, 284). Not introduced this iteration but should be cleaned up.",
+    "PRE-EXISTING (not Phase 6): /app/frontend/src/services/api.ts uses `import.meta.env` but tsconfig lacks Vite ImportMeta type — typescript errors at lines 4,5. Not Phase 6 related."
+  ],
+  "critical_code_review_comments": [
+    "Sidebar.tsx: transition-[width] correctly used (NOT transition-all). justify-center applied when collapsed. whitespace-nowrap + overflow-hidden prevent label clipping. Tooltips conditionally mounted only when collapsed — clean approach.",
+    "MainLayout.tsx: lazy initializer pattern with readCollapsed() avoids hydration flash. localStorage write in useEffect on every collapsed change. Try/catch around storage access — robust.",
+    "MobileSidebar.tsx: Radix Sheet Dialog cleanly unmounts on close. Each MobileNavItem fires onNavigate (close) before NavLink default behavior — proper drawer dismissal.",
+    "nav-items.ts: clean shared NAV_ITEMS source with roles filter; both desktop and mobile sidebars reuse — DRY satisfied.",
+    "Phase 6 files contribute ZERO new TS errors; pre-existing errors in LeadDetailPage and api.ts are unrelated."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only iteration)", "frontend": "100% (17/17 Phase 6 scenarios + 8/8 regression scenarios)"},
+  "test_credentials": "admin@realestate.com / Admin@2036; agent@realestate.com / Agent@2036",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 6 is fully verified. data-testid for sidebar='sidebar' with data-collapsed='true|false'. Mobile drawer testid='mobile-sidebar', items 'mobile-nav-{label}' (lowercased, e.g. 'mobile-nav-follow-ups' uses dash form since label is 'Follow-ups' lowercased = 'follow-ups'). Desktop nav 'nav-{label}'. localStorage key 'sidebar:collapsed' value '1'=collapsed '0'=expanded. Verified using set_viewport_size 1440x900 (desktop) and 390x844 (mobile) with 500–700ms settle.",
+  "verified_features": [
+    "admin login + agent login",
+    "desktop sidebar default expanded (data-collapsed=false, width=260)",
+    "toggle collapse: width 260→68, data-collapsed=true, localStorage='1'",
+    "reload persistence: data-collapsed stays 'true' after reload",
+    "collapsed UX: justify-center class, no text labels, tooltip on hover",
+    "collapsed active route: /leads keeps bg-primary",
+    "expand back: width 260, localStorage='0'",
+    "main-content widens by 192px when sidebar collapses",
+    "mobile <768px: desktop sidebar hidden, mobile-menu-button visible",
+    "mobile drawer mounts on click, contains all nav items",
+    "admin mobile drawer shows mobile-nav-users",
+    "mobile-nav click navigates + closes drawer (unmounts)",
+    "Escape key closes drawer (overlay equivalent)",
+    "AGENT mobile drawer does NOT show mobile-nav-users (RBAC)",
+    "mobile /dashboard: 0px body overflow, grids collapse to 1-col",
+    "mobile /leads: 0px body overflow, table wrapped in overflow-x-auto",
+    "no regression: /leads, /users, /communications, /followups all accessible"
+  ]
+}

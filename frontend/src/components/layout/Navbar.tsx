@@ -15,10 +15,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface NavbarProps {
-  onMobileSidebarToggle: () => void;
+  onMobileMenuOpen: () => void;
 }
 
-export default function Navbar({ onMobileSidebarToggle }: NavbarProps) {
+export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -42,8 +42,9 @@ export default function Navbar({ onMobileSidebarToggle }: NavbarProps) {
         variant="ghost"
         size="icon"
         className="md:hidden"
-        onClick={onMobileSidebarToggle}
+        onClick={onMobileMenuOpen}
         data-testid="mobile-menu-button"
+        aria-label="Open navigation menu"
       >
         <Menu size={20} />
       </Button>

@@ -1,56 +1,32 @@
-import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Building2,
-  Users,
-  UserPlus,
-  CalendarClock,
-  MessageSquareText,
-  Activity as ActivityIcon,
-  TrendingUp,
-  BarChart3,
-  Settings,
-  UserCog,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-} from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-interface NavItem {
-  icon: React.ElementType;
-  label: string;
-  href: string;
-  roles?: string[];
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-  { icon: UserPlus, label: 'Leads', href: '/leads' },
-  { icon: CalendarClock, label: 'Follow-ups', href: '/followups' },
-  { icon: MessageSquareText, label: 'Communications', href: '/communications' },
-  { icon: ActivityIcon, label: 'Activity', href: '/activity' },
-  { icon: Building2, label: 'Properties', href: '/properties' },
-  { icon: Users, label: 'Clients', href: '/clients' },
-  { icon: TrendingUp, label: 'Deals', href: '/deals' },
-  { icon: BarChart3, label: 'Reports', href: '/reports', roles: ['ADMIN'] },
-  { icon: UserCog, label: 'Users', href: '/users', roles: ['ADMIN'] },
-];
-
-const BOTTOM_NAV: NavItem[] = [
-  { icon: Settings, label: 'Settings', href: '/settings' },
-];
+import { NAV_ITEMS, BOTTOM_NAV, filterNavForRole, type NavItem } from './nav-items';
 
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
 }
 
+/**
+ * Desktop-only sidebar (`hidden md:flex`). For mobile see `MobileSidebar`.
+ *
+ * Collapse UX rules enforced here so the transition stays smooth and the
+ * surrounding `<main>` doesn't repaint mid-animation:
+ *   - Width transitions on a single CSS property (`transition-[width]`),
+ *     NEVER `transition-all` (which would also animate children).
+ *   - Every nav row is `whitespace-nowrap` so the label can't wrap during
+ *     the width animation; `overflow-hidden` on the row clips cleanly.
+ *   - The label is wrapped in a fixed-opacity element that fades out via
+ *     `opacity` instead of `display:none` so the icon never re-flows.
+ *   - Icons are vertically and horizontally centered via `justify-center`
+ *     when collapsed; the icon container has a fixed 18px box.
+ *   - Hover tooltips are only mounted in the collapsed state.
+ */
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -60,63 +36,91 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     navigate('/login');
   };
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.roles || (user && item.roles.includes(user.role)),
-  );
+  const visibleItems = filterNavForRole(NAV_ITEMS, user?.role);
 
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         data-testid="sidebar"
+        data-collapsed={collapsed}
         className={cn(
-          'hidden md:flex flex-col h-full border-r border-border bg-card transition-all duration-300 ease-in-out shrink-0',
+          'hidden md:flex flex-col h-full border-r border-border bg-card shrink-0 overflow-hidden',
+          'transition-[width] duration-300 ease-in-out',
           collapsed ? 'w-[68px]' : 'w-[260px]',
         )}
       >
         {/* Logo */}
-        <div className={cn('flex items-center h-16 px-4 border-b border-border', collapsed ? 'justify-center' : 'justify-between')}>
-          {!collapsed && (
-            <div className="flex items-center gap-2" data-testid="sidebar-logo">
+        <div
+          className={cn(
+            'flex items-center h-16 px-3 border-b border-border shrink-0',
+            collapsed ? 'justify-center' : 'justify-between',
+          )}
+        >
+          {collapsed ? (
+            <Building2 className="h-6 w-6 text-primary shrink-0" data-testid="sidebar-logo-collapsed" />
+          ) : (
+            <div className="flex items-center gap-2 overflow-hidden" data-testid="sidebar-logo">
               <Building2 className="h-6 w-6 text-primary shrink-0" />
-              <span className="font-heading font-semibold text-lg text-primary">EstateOS</span>
+              <span className="font-heading font-semibold text-lg text-primary truncate">
+                EstateOS
+              </span>
             </div>
           )}
-          {collapsed && <Building2 className="h-6 w-6 text-primary" />}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggle}
-            className={cn('h-8 w-8 text-muted-foreground hover:text-foreground', collapsed && 'mt-0')}
-            data-testid="sidebar-toggle"
-          >
-            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-          </Button>
+          {!collapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+              data-testid="sidebar-toggle"
+              aria-label="Collapse sidebar"
+            >
+              <ChevronLeft size={16} />
+            </Button>
+          )}
         </div>
 
+        {/* Expand-button row (visible only when collapsed, sits below the logo) */}
+        {collapsed && (
+          <div className="px-2 pt-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggle}
+                  className="h-8 w-full text-muted-foreground hover:text-foreground"
+                  data-testid="sidebar-toggle"
+                  aria-label="Expand sidebar"
+                >
+                  <ChevronRight size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
         {/* Main Nav */}
-        <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5" data-testid="sidebar-nav">
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5" data-testid="sidebar-nav">
           {visibleItems.map((item) => (
-            <NavItem
-              key={item.href}
-              item={item}
-              collapsed={collapsed}
-            />
+            <SidebarNavItem key={item.href} item={item} collapsed={collapsed} />
           ))}
         </nav>
 
         <Separator />
 
         {/* Bottom Nav */}
-        <div className="py-3 px-2 space-y-0.5">
+        <div className="py-3 px-2 space-y-0.5 shrink-0">
           {BOTTOM_NAV.map((item) => (
-            <NavItem key={item.href} item={item} collapsed={collapsed} />
+            <SidebarNavItem key={item.href} item={item} collapsed={collapsed} />
           ))}
         </div>
 
         {/* User info + Logout */}
-        <div className={cn('p-3 border-t border-border')}>
+        <div className="p-3 border-t border-border shrink-0">
           {!collapsed ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 overflow-hidden">
               <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold shrink-0">
                 {user?.name?.charAt(0).toUpperCase()}
               </div>
@@ -128,8 +132,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 variant="ghost"
                 size="icon"
                 onClick={handleLogout}
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
                 data-testid="logout-button"
+                aria-label="Log out"
               >
                 <LogOut size={15} />
               </Button>
@@ -143,6 +148,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   onClick={handleLogout}
                   className="w-full h-9 text-muted-foreground hover:text-destructive"
                   data-testid="logout-button-collapsed"
+                  aria-label="Log out"
                 >
                   <LogOut size={16} />
                 </Button>
@@ -156,38 +162,48 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   );
 }
 
-function NavItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+function SidebarNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   const Icon = item.icon;
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+      'group flex items-center rounded-md text-sm font-medium transition-colors whitespace-nowrap',
       'hover:bg-accent hover:text-accent-foreground',
       isActive
         ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
         : 'text-muted-foreground',
-      collapsed && 'justify-center px-0 w-10 mx-auto',
+      // Fixed paddings per mode prevent any width-jump during the
+      // outer aside's width animation.
+      collapsed ? 'justify-center px-0 h-10 w-10 mx-auto' : 'gap-3 px-3 py-2.5',
     );
 
+  // Collapsed: wrap in tooltip; Expanded: plain link.
   if (collapsed) {
     return (
-      <TooltipProvider delayDuration={0}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <NavLink to={item.href} className={linkClass} data-testid={`nav-${item.label.toLowerCase()}`}>
-              <Icon size={18} />
-            </NavLink>
-          </TooltipTrigger>
-          <TooltipContent side="right">{item.label}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <NavLink
+            to={item.href}
+            className={linkClass}
+            data-testid={`nav-${item.label.toLowerCase()}`}
+            aria-label={item.label}
+          >
+            <Icon size={18} />
+          </NavLink>
+        </TooltipTrigger>
+        <TooltipContent side="right">{item.label}</TooltipContent>
+      </Tooltip>
     );
   }
 
   return (
-    <NavLink to={item.href} className={linkClass} data-testid={`nav-${item.label.toLowerCase()}`}>
+    <NavLink
+      to={item.href}
+      className={linkClass}
+      data-testid={`nav-${item.label.toLowerCase()}`}
+    >
       <Icon size={18} className="shrink-0" />
-      <span>{item.label}</span>
+      <span className="truncate">{item.label}</span>
     </NavLink>
   );
 }
