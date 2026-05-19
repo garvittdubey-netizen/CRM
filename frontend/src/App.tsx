@@ -14,6 +14,8 @@ import PipelinePage from '@/pages/PipelinePage';
 import UsersPage from '@/pages/UsersPage';
 import PropertiesPage from '@/pages/PropertiesPage';
 import PropertyDetailPage from '@/pages/PropertyDetailPage';
+import ClientsPage from '@/pages/ClientsPage';
+import ClientDetailPage from '@/pages/ClientDetailPage';
 
 export default function App() {
   return (
@@ -36,6 +38,8 @@ export default function App() {
             <Route path="/activity" element={<ActivitiesPage />} />
             <Route path="/properties" element={<PropertiesPage />} />
             <Route path="/properties/:id" element={<PropertyDetailPage />} />
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/clients/:id" element={<ClientDetailPage />} />
           </Route>
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>

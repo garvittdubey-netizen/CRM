@@ -21,6 +21,8 @@ model User {
   communications  Communication[] @relation("CommunicationCreator")
   activities      Activity[]      @relation("UserActivities")
   properties      Property[]      @relation("PropertyOwnerAgent")
+  clients         Client[]        @relation("ClientAssignedAgent")
+  clientActivities ClientActivity[] @relation("ClientActivityActor")
 
   @@map("users")
 }
@@ -62,6 +64,46 @@ enum AreaUnit {
   SQM
 }
 
+model Client {
+  id                String           @id @default(cuid())
+  fullName          String
+  phone             String?
+  email             String?
+  budget            Decimal?         @db.Decimal(15, 2)
+  preferredLocation String?
+  notes             String?          @db.Text
+  linkedLeadId      String?
+  linkedLead        Lead?            @relation("LeadClients", fields: [linkedLeadId], references: [id], onDelete: SetNull)
+  assignedAgentId   String?
+  assignedAgent     User?            @relation("ClientAssignedAgent", fields: [assignedAgentId], references: [id])
+  activities        ClientActivity[] @relation("ClientToActivities")
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([assignedAgentId, createdAt])
+  @@index([linkedLeadId])
+  @@map("clients")
+}
+
+/// Auto-logged lifecycle events for the Clients module. Kept in its own
+/// table so the Communication/Activity tables stay untouched.
+///   action: CREATED | UPDATED | LINKED_LEAD | UNLINKED_LEAD |
+///           AGENT_ASSIGNED | AGENT_UNASSIGNED | NOTES_UPDATED | DELETED
+model ClientActivity {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation("ClientToActivities", fields: [clientId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation("ClientActivityActor", fields: [userId], references: [id])
+  action      String
+  description String   @db.Text
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([clientId, createdAt])
+  @@map("client_activities")
+}
+
 model Lead {
   id                String     @id @default(cuid())
   fullName          String
@@ -80,6 +122,7 @@ model Lead {
   followUps         FollowUp[] @relation("LeadFollowUps")
   communications    Communication[] @relation("LeadCommunications")
   activities        Activity[] @relation("LeadActivities")
+  clients           Client[]   @relation("LeadClients")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 

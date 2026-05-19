@@ -12,6 +12,7 @@ import { analyticsRouter } from './routes/analytics.routes';
 import { whatsappWebhookRouter } from './routes/whatsapp-webhook.routes';
 import { propertyRouter } from './routes/property.routes';
 import { uploadRouter } from './routes/upload.routes';
+import { clientRouter } from './routes/client.routes';
 import { prisma } from './lib/prisma';
 import { seedAdmin } from './scripts/seed';
 
@@ -69,6 +70,7 @@ app.use('/api/activities', activityRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/properties', propertyRouter);
 app.use('/api/uploads', uploadRouter);
+app.use('/api/clients', clientRouter);
 
 // 404 handler
 app.use((_req, res) => {

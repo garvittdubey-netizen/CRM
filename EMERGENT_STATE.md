@@ -44,9 +44,9 @@
   - Tested: 17/17 backend + 13/13 frontend E2E (iteration_2.json)
 - [x] **Dashboard Analytics & Reporting module (Phase 4.0)** — see Phase 4.0 below
 - [x] **Properties module (Phase 8.0)** — see Phase 8.0 below
+- [x] **Clients module (Phase 9.0)** — see Phase 9.0 below
 
 ### Pending Features
-- [ ] Clients module
 - [ ] Deals module
 - [ ] Reports (Admin only)
 - [ ] Settings page
@@ -340,6 +340,50 @@
     - `/properties` lists the seeded card with Available badge, type chip "Apartment", location "Bandra West, Mumbai", 3 beds · 3 baths · 1500 SQFT, ₹3.50 Cr, owner "Admin", grid/list toggle visible, "Add Property" button visible, filter sidebar with all 5 controls.
     - `/properties/:id` shows back button, Edit + Delete buttons (admin), "No images uploaded" gallery placeholder, title + Available status dot, ₹3.50 Cr · 1500 SQFT headline, "Matching Leads · Finding matches…" sidebar, metadata card.
     - "Add New Property" modal renders every field including the image dropzone "Drop images here or click to upload · 0/10 added".
+
+**Phase 9.0: Clients Module + Merged Activity Timeline** — COMPLETE (2026-05-19)
+  - **Scope**: Real `Client` model on Neon Postgres + full CRUD + search + agent/linkage filters + merged activity timeline (native client lifecycle events PLUS, when a lead is linked, the lead's communications + follow-ups + Activity feed entries). Ownership RBAC mirrors Leads and Properties exactly.
+  - **Zero changes** to auth, leads, follow-ups, communication, WhatsApp, analytics, CSV import/export, user management, pipeline, properties, DB configuration, or architecture. Purely additive — two new tables and a new router. Existing services and tables are read-only consumers of `linkedLeadId`.
+  - **New Prisma migration**: `20260519203534_add_client_model` adds:
+    - Model `Client` (id, fullName, phone, email, budget `Decimal(15,2)`, preferredLocation, notes `Text`, `linkedLeadId` FK → `Lead` with `onDelete: SetNull` so deleting a lead never cascades into client loss, `assignedAgentId` FK → `User`, createdAt, updatedAt). Indexes on `(assignedAgentId, createdAt)` and `(linkedLeadId)` for the two hot query paths (agent dashboards + reverse lookup from a lead).
+    - Model `ClientActivity` (id, clientId FK cascade, userId FK to acting user, action string, description Text, metadata Json, createdAt). Indexed on `(clientId, createdAt)`. Lives in its own table so the Communication module's `Activity` table is untouched.
+    - Back-relations `User.clients`, `User.clientActivities`, `Lead.clients` (one-to-many: a lead can have zero-or-many clients per user choice).
+  - **Backend API surface** (all JWT-protected, `/api/clients/*`):
+    - `GET    /api/clients`               list with pagination + filters (search across fullName/phone/email/preferredLocation, assignedAgentId, linkedLeadId — `'NONE'` filters for unlinked clients, sortBy/sortOrder). RBAC scope: `buildClientScope(userId, role)` injects `assignedAgentId = userId` automatically for AGENT — same shape as Lead's scope helper.
+    - `POST   /api/clients`               create. `fullName` is required. AGENT auto-owns; ADMIN may pick `assignedAgentId` or leave unassigned. Auto-logs `CREATED`, plus `LINKED_LEAD` when `linkedLeadId` provided.
+    - `GET    /api/clients/:id`           fetch one. AGENT sees only own assigned (403 otherwise).
+    - `PUT    /api/clients/:id`           partial update. ADMIN any; AGENT own only; AGENT cannot change `assignedAgentId`. Auto-logs deltas as semantically-typed lifecycle events: `LINKED_LEAD | UNLINKED_LEAD | AGENT_ASSIGNED | AGENT_UNASSIGNED | NOTES_UPDATED | UPDATED`.
+    - `DELETE /api/clients/:id`           ADMIN any; AGENT own only. Cascade removes `client_activities`.
+    - `PATCH  /api/clients/:id/assign`    ADMIN only — reassign agent + auto-log `AGENT_ASSIGNED` / `AGENT_UNASSIGNED`.
+    - `GET    /api/clients/:id/timeline`  read-only merged feed. Pulls (a) ClientActivity rows, plus when `linkedLeadId` is set: (b) Communications (WhatsApp + Calls with type + direction + message preview), (c) FollowUps (status + date + notes preview), (d) Activity rows tagged to that lead. Items get a stable `source-prefixed` id (`client:`, `comm:`, `fu:`, `lact:`), are sorted newest-first, capped to 200.
+  - **Files added (backend)**:
+    - `services/client.service.ts` — `buildClientScope`, `listClients`, `getClientById`, `createClient`, `updateClient`, `deleteClient`, `logClientActivity` (best-effort; never throws). Decimal → number conversion in `toDto`.
+    - `services/client-timeline.service.ts` — `buildClientTimeline(clientId)` reads 4 sources, normalizes to `TimelineItem`, sorts, slices.
+    - `controllers/client.controller.ts` — all 7 handlers with RBAC + automatic lifecycle logging.
+    - `routes/client.routes.ts` — wires the 7 endpoints, `requireRole('ADMIN')` only on `/assign`.
+    - `index.ts` — adds `app.use('/api/clients', clientRouter)`.
+  - **Frontend routes + pages**:
+    - `/clients` — `ClientsPage` with grid/list toggle (persisted in localStorage `clients:view`), search input (debounced 400 ms), admin-only agent filter (uses existing `agentsApi.list()`), linkage filter `Any | With linked lead | Without linked lead` (server filter `linkedLeadId=NONE` + client-side filter for the "with linked lead" case to avoid an extra backend boolean column), pagination, skeleton + empty states.
+    - `/clients/:id` — `ClientDetailPage` with avatar header, budget headline, 6-field profile grid (phone / email / budget / agent / linked lead / created), `notes` block, `ClientActivityTimeline` (merged feed, source-coloured icons, actor + relative time, empty-state copy), right rail with Quick info (updated, id) and an "Open lead" card when a linked lead exists. Edit/Delete buttons RBAC-gated. Message button only enabled when a lead is linked (deep-links to `/communications?leadId=`).
+  - **Components added (`/app/frontend/src/components/clients/`)**:
+    - `ClientCard.tsx` — grid card with avatar initial, name, location, budget, phone, email, agent, optional linked-lead chip (reuses existing `StatusBadge`).
+    - `ClientListRow.tsx` — dense single-row list variant with the same data.
+    - `ClientFormModal.tsx` — create/edit dialog. Searchable linked-lead picker (debounced lead query → `leadsApi.list`). Admin-only assigned-agent select. Validates `fullName` is non-empty. Surfaces 400/403 via `extractApiError`.
+    - `ClientActivityTimeline.tsx` — vertical timeline with source-specific icons (CircleUserRound / MessageSquare / CalendarClock / Activity), source pill, actor + locale-formatted timestamp, empty state copy that adapts based on `hasLinkedLead`.
+  - **Types added** (`frontend/src/types/index.ts`): `Client`, `ClientsResponse`, `CreateClientData`, `UpdateClientData`, `ClientTimelineSource`, `ClientTimelineItem`.
+  - **Frontend service** (`services/clients.ts`): `clientsApi.list/get/create/update/delete/assign/timeline`.
+  - **App routing** (`App.tsx`): added `/clients` and `/clients/:id` under the protected `MainLayout`. The "Clients" sidebar nav entry was already present from Phase 6.0, so no `nav-items.ts` change was needed.
+  - **Files NOT touched**: backend auth/leads/follow-ups/communications/whatsapp/analytics/csv/users/pipeline/properties files (any); MainLayout, Navbar, Sidebar, MobileSidebar, nav-items; `frontend/src/services/api.ts`, `services/leads.ts`, `services/communications.ts`, `services/whatsapp.ts`, `services/properties.ts`, `services/analytics.ts`. The only existing files modified are `prisma/schema.prisma` (3 additive lines on `User`, 1 line on `Lead`, plus new `Client` + `ClientActivity` models), `backend/src/index.ts` (2 lines to wire the router), `frontend/src/types/index.ts` (additive types), and `frontend/src/App.tsx` (2 route lines).
+  - **Live smoke test** (admin token, localhost):
+    ```
+    POST /api/clients   {fullName:"Vivek Kumar", phone:"+91 98765 11111", email:"vivek@…", budget:8500000, preferredLocation:"Powai, Mumbai", notes:"Looking for 3BHK near tech park"} → 201 (auto-owned by admin)
+    GET  /api/clients                     → 1 client
+    GET  /api/clients/:id/timeline        → 1 item {source:"CLIENT", action:"CREATED", description:"Client \"Vivek Kumar\" created", actor:"Admin"}
+    ```
+  - **UI verified** via screenshots at 1440x900 (light theme):
+    - `/clients` lists the card with avatar "V", name, location chip, ₹85.00 L, phone, email, "Admin" owner badge. Grid/List toggle, "Add Client" CTA, search input + agent filter + link-state filter visible.
+    - `/clients/:id` shows back button, Message/Edit/Delete actions, profile card with budget headline, 6-field grid (phone, email, budget, agent, linked lead "Not linked", created), notes block, and the Activity timeline rendering the single CREATED event "Client \"Vivek Kumar\" created · by Admin" with timestamp + source pill.
+    - "Add New Client" modal renders every field including the searchable linked-lead picker and admin-only Assigned Agent dropdown.
 
 ---
 

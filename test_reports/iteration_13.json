@@ -1,0 +1,61 @@
+{
+  "summary": "Phase 9.0 Clients module — full backend + frontend regression. 21/21 pytest tests for /api/clients pass on the live preview URL against Neon Postgres. All RBAC (ADMIN vs AGENT), search/filter/pagination, link/unlink, assign/unassign, delete cascade of ClientActivity rows, and the critical onDelete=SetNull behaviour when the linked Lead is deleted are verified end-to-end. Merged timeline returns CLIENT + COMMUNICATION + FOLLOWUP sources (+ ACTIVITY when present) with source-prefixed ids. Frontend: /clients page mounts, all 7 data-testid groups present, view-toggle persists to localStorage key 'clients:view', add-modal validation works (inline error on empty fullName), ADMIN sees agent-filter + agent-select, AGENT does NOT see either, create→list-refresh→search→detail→delete round-trip succeeds. Regression: /api/health, /api/leads, /api/properties, /api/followups, /api/communications, /api/analytics/overview, /api/users all 200.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Add/Edit Client modal", "issues": ["a11y console warning: Missing `Description` or `aria-describedby` on {DialogContent}. Non-blocking but should add a DialogDescription or sr-only description for screen-reader users."]},
+      {"screen": "/clients list", "issues": ["Initial skeleton loaders linger noticeably on a fresh page load (~2-3s) before the grid populates — first manual test attempt mistakenly read 0 cards. Once loaded, refresh after create is instantaneous. Not a bug, but consider showing the existing list immediately and only the new row as skeleton on refetch."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_clients.py",
+    "/app/test_reports/pytest/clients_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "controllers/client.controller.ts addClient — when ADMIN passes assignedAgentId === null explicitly, the `?? req.user!.id` defaults it to the admin's own id. Spec says ADMIN may leave unassigned. Recommend treating `null` as an explicit unassign: `req.body.assignedAgentId === undefined ? req.user!.id : req.body.assignedAgentId`. Low severity — assign endpoint can later clear it.",
+    "controllers/client.controller.ts editClient — RBAC check `existing.assignedAgentId !== req.user!.id` returns 403 for AGENT, but an AGENT viewing an unassigned client (assignedAgentId=null) also gets 403 with the message 'You can only edit clients assigned to you'. Per AGENT scope helper, unassigned clients are never visible to AGENT anyway, so functionally fine — just noting for symmetry with Lead module.",
+    "services/client.service.ts toDto uses `any`. Same pattern as Property — acceptable.",
+    "services/client-timeline.service.ts — does 4 sequential DB queries; could parallelize with Promise.all for marginal speed-up. Optional.",
+    "ClientFormModal — missing DialogDescription / aria-describedby (Radix a11y warning logged in console for both create + edit modals)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_clients.py"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (all critical UI/RBAC flows)"},
+  "test_credentials": "admin@realestate.com / Admin@2036, agent@realestate.com / Agent@2036",
+  "seed_data_creation": "All TEST_* clients and leads created during pytest were cleaned up via DELETE in the session-scoped fixture. One UI-created TEST_UI_C_* client was deleted via the delete button. Neon DB is at pre-test state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 9.0 Clients module is stable. data-testids: clients-page, add-client-button, clients-view-toggle, clients-view-grid, clients-view-list, clients-filters, clients-search-input, clients-agent-filter (ADMIN only), clients-linked-filter, clients-clear-filters, clients-grid, clients-list, clients-pagination/-prev/-next, clients-empty, client-card-:id, client-card-linked-:id, client-row-:id, client-fullname/phone/email/budget/location-input, client-notes-textarea, client-lead-search, client-lead-select, client-agent-select (ADMIN only), client-form-error, client-form-submit, client-detail-page, back-to-clients-button, client-message-button, edit-client-button, delete-client-button, client-detail-name/budget/notes, client-linked-lead-link, open-linked-lead-button, client-activity-timeline, client-timeline-count, client-timeline-empty, client-timeline-list, client-timeline-item-:source:id. View-toggle persists to localStorage key 'clients:view'. RBAC: AGENT scope is implicit (server-side filter) — no agent filter UI shown. PATCH /:id/assign is ADMIN-only. Linked-lead onDelete=SetNull (verified). ClientActivity onDelete=Cascade (verified). For timeline tests with merged sources, create a communication + follow-up against the lead and a client linked to that lead, then GET /api/clients/:id/timeline — sources should include 'CLIENT','COMMUNICATION','FOLLOWUP' (and 'ACTIVITY' if any activities exist for the lead).",
+  "verified_flows": [
+    "Backend POST /api/clients fullName required (400)",
+    "Backend POST /api/clients AGENT override assignedAgentId → forced to self",
+    "Backend POST /api/clients ADMIN with linkedLeadId → CREATED + LINKED_LEAD activity rows",
+    "Backend GET /api/clients shape {clients,total,page,limit,pages}",
+    "Backend GET /api/clients?search=... case-insensitive across fullName/phone/email/preferredLocation",
+    "Backend GET /api/clients?linkedLeadId=NONE only unlinked clients",
+    "Backend GET /api/clients?assignedAgentId=... admin filter",
+    "Backend GET /api/clients AGENT scope auto-restricted to own",
+    "Backend GET /api/clients/:id 404 missing, 403 cross-agent",
+    "Backend PUT /api/clients/:id ADMIN edit any, AGENT own-only, AGENT cannot reassign (403)",
+    "Backend PUT lifecycle deltas: LINKED_LEAD, UNLINKED_LEAD, NOTES_UPDATED",
+    "Backend PATCH /api/clients/:id/assign ADMIN sets+clears, AGENT 403",
+    "Backend DELETE /api/clients/:id ADMIN 204, AGENT 403 on others, ClientActivity cascade-deleted",
+    "Lead delete sets linked client.linkedLeadId to NULL (NOT cascade)",
+    "Timeline merge: CLIENT + COMMUNICATION + FOLLOWUP sources present with source-prefixed ids",
+    "Frontend: ADMIN login → /clients renders, sidebar Clients active",
+    "Frontend: all clients-* data-testids present",
+    "Frontend: view-toggle persists clients:view='list' in localStorage",
+    "Frontend: Add modal inline error on empty fullName",
+    "Frontend: ADMIN sees agent-select + agent-filter",
+    "Frontend: Create → POST 201 → list refreshes → search finds → detail mounts → delete → returns to /clients",
+    "Frontend: AGENT does NOT see clients-agent-filter or client-agent-select",
+    "Regression: /api/health 200, /api/leads 200, /api/properties 200, /api/followups 200, /api/communications 200, /api/analytics/overview 200, /api/users 200"
+  ]
+}

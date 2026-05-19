@@ -368,3 +368,54 @@ export interface CloudinarySignature {
   folder: string;
   uploadUrl: string;
 }
+
+// ── Client Module ────────────────────────────────────────────────────────────
+
+export interface Client {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  budget: number | null;
+  preferredLocation: string | null;
+  notes: string | null;
+  linkedLeadId: string | null;
+  linkedLead: { id: string; fullName: string; status: LeadStatus; phone: string | null } | null;
+  assignedAgentId: string | null;
+  assignedAgent: { id: string; name: string; email: string; role: UserRole } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientsResponse {
+  clients: Client[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface CreateClientData {
+  fullName: string;
+  phone?: string;
+  email?: string;
+  budget?: number | null;
+  preferredLocation?: string;
+  notes?: string;
+  linkedLeadId?: string | null;
+  assignedAgentId?: string | null;
+}
+
+export type UpdateClientData = Partial<CreateClientData>;
+
+export type ClientTimelineSource = 'CLIENT' | 'COMMUNICATION' | 'FOLLOWUP' | 'ACTIVITY';
+
+export interface ClientTimelineItem {
+  id: string;
+  source: ClientTimelineSource;
+  action: string;
+  description: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  actor: { id: string; name: string } | null;
+}
