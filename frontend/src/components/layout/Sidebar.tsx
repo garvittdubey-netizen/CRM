@@ -89,7 +89,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   variant="ghost"
                   size="icon"
                   onClick={onToggle}
-                  className="h-8 w-full text-muted-foreground hover:text-foreground"
+                  className="h-8 w-full text-foreground/75 hover:text-foreground"
                   data-testid="sidebar-toggle"
                   aria-label="Expand sidebar"
                 >
@@ -146,7 +146,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   variant="ghost"
                   size="icon"
                   onClick={handleLogout}
-                  className="w-full h-9 text-muted-foreground hover:text-destructive"
+                  className="w-full h-9 text-foreground/75 hover:text-destructive"
                   data-testid="logout-button-collapsed"
                   aria-label="Log out"
                 >
@@ -171,6 +171,14 @@ function SidebarNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean
       'hover:bg-accent hover:text-accent-foreground',
       isActive
         ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
+        // In collapsed mode there's no label to give the icon visual weight, so we
+        // upgrade inactive icons from `text-muted-foreground` (≈47% lightness in
+        // light theme — barely visible on the white card) to `text-foreground/75`,
+        // which renders as a readable near-black in light mode and a soft near-white
+        // in dark mode. Expanded mode keeps the original muted tone since the label
+        // already carries the colour.
+        : collapsed
+        ? 'text-foreground/75'
         : 'text-muted-foreground',
       // Fixed paddings per mode prevent any width-jump during the
       // outer aside's width animation.

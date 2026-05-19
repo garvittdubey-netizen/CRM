@@ -203,6 +203,19 @@
     - Desktop: toggle flips `data-collapsed` and width 260↔68 within 300ms; `<main>` widens by 192px to match the delta; tooltips appear when hovering collapsed nav items; active route highlight persists in collapsed mode; reload preserves the chosen state (localStorage round-trip verified).
   - **Tested**: 17/17 Phase 6 scenarios + 8/8 regression scenarios → 100% pass (`/app/test_reports/iteration_10.json`).
 
+**Phase 6.1: Collapsed Sidebar Icon Contrast Fix** — COMPLETE (2026-05-19)
+  - **Tiny CSS-only patch** to `/app/frontend/src/components/layout/Sidebar.tsx`. No structural changes, no logic changes, no other files touched.
+  - **Root cause**: in the collapsed (icon-only) state, every inactive nav item inherited `text-muted-foreground` which resolves to `hsl(215 16% 47%)` in light theme — a light grey on the white card background. Without the accompanying label, the icons looked nearly invisible.
+  - **Fix**: When collapsed, swap inactive items from `text-muted-foreground` → `text-foreground/75` (~11% lightness × 75% opacity in light theme = a strong, readable near-black; in dark theme it renders as a soft near-white). Three call-sites updated:
+    1. `SidebarNavItem.linkClass` — applies only when `collapsed && !isActive`. Expanded mode still uses `text-muted-foreground` because the label itself carries the colour.
+    2. Collapsed-state toggle button (`ChevronRight`).
+    3. Collapsed-state logout button (`logout-button-collapsed`).
+  - **Preserved**:
+    - Active-item highlight (`bg-primary text-primary-foreground`) untouched → still the most prominent state.
+    - Hover behaviour (`hover:bg-accent hover:text-accent-foreground`) untouched.
+    - Width transition, tooltips, persistence, expanded-state styling, mobile drawer — all untouched.
+  - **Verified** via screenshots in both light + dark themes with the sidebar collapsed: icons clearly visible in both modes; active route (Leads) keeps its primary-tint pill in collapsed light theme.
+
 **Phase 7.0: Lead Pipeline (Kanban Board)** — COMPLETE & VERIFIED (2026-05-19, iteration_11.json)
   - **Pure frontend iteration** — zero backend changes; status updates reuse the existing `PUT /api/leads/:id` endpoint (which already permits an `AGENT` to update leads assigned to them, and an `ADMIN` to update any lead). RBAC is inherited automatically.
   - **New route `/pipeline`** (no role guard — both ADMIN and AGENT see it; AGENT is naturally scoped to own leads because the underlying `/api/leads` is RBAC-scoped). Sidebar nav item **Pipeline** with `Kanban` icon, inserted between **Leads** and **Follow-ups** in the shared `nav-items.ts` (so both desktop Sidebar and MobileSidebar pick it up automatically).
