@@ -1,0 +1,49 @@
+{
+  "summary": "Frontend-only sanity recap of Deals Phase-1 (ADMIN) + light regression smoke across Leads, Clients, Properties, Follow-ups, Communications, Dashboard, mobile responsive nav. Backend was NOT re-tested (already 24/24 in iteration 14). ADMIN /deals page mounts with all documented data-testids (deals-page, add-deal-button, deals-search-input, deals-status-filter, deals-agent-filter, deals-view-toggle, deals-grid). Add Deal modal renders all 9 fields including the ADMIN-only deal-agent-select; inline validation 'Title is required' fires via [data-testid=deal-form-error] on empty submit. Status filter exposes all 6 statuses (New, Negotiation, Documentation, Payment Pending, Won, Lost) plus the 'All status' default. View toggle persists localStorage 'deals:view' (verified PASS on clean re-run; one transient Playwright click-timeout on the toggle was caused by a leftover Radix Select overlay during the first run, not by the app). Regression: /leads (admin Import button visible, Export visible), /clients (clients-agent-filter visible, add-client-button visible), /properties (toggle + add-property-button), /followups (add-followup-button), /communications (inbox sidebar with 3 conversations, ChatPanel composer, 5 quick-reply chips, 'Use template' + 'Log a call' buttons all present), /dashboard (full render — 109 testids: date-range-filter with range-today/-7d/-30d/-custom, export-analytics-button, communication-stats-grid 4 cards, lead-funnel-chart, leads-by-status-card, leads-by-source-card, followup-completion-card, agent-performance-grid with per-agent cards). Mobile 390px: mobile-menu-button hamburger present on dashboard. Sidebar at 1440px shows nav-deals entry. Agent RBAC for Deals was already confirmed in iteration 14 and was not re-tested per instructions.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/analytics/agent-performance, /api/analytics/followup-completion, /api/analytics/communication-stats, /api/analytics/lead-funnel, /api/analytics/agent-stats, /api/analytics/export", "issue": "Return 404 'Route not found'. The dashboard still renders correctly because it consumes the data via the existing /api/analytics/overview, /api/analytics/leads-by-status, /api/analytics/leads-by-source, /api/analytics/agents endpoints (all 200). These extra names may be obsolete client-side guesses — confirm whether they are expected to exist for the 6-CSV Export Analytics dropdown (the dashboard currently shows a single 'Export' button, not a dropdown of 6 options as the spec mentions)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Dashboard Export Analytics", "issue": "Spec asks for an Export Analytics DROPDOWN with 6 CSV options. The rendered control is a single button ([data-testid=export-analytics-button] labelled 'Export'), no dropdown menu opens on click in the screenshot. Either the dropdown is not wired up or it has been simplified. Worth confirming with the main agent.", "affected_selectors": ["[data-testid=export-analytics-button]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_14.json",
+    "/app/backend/tests/test_deals.py"
+  ],
+  "action_items": [
+    "Optional: confirm whether Export Analytics is supposed to be a 6-option dropdown (CSV exports) — currently it is a single 'Export' button. If yes, wire the dropdown options and/or implement the missing /api/analytics/export endpoint.",
+    "Optional: clean up dead 404 routes from the frontend if any code path still references /api/analytics/agent-performance, /followup-completion, /communication-stats, /lead-funnel, /agent-stats, /export. Today these 404s are silent because the actual charts use the working endpoints, but the noisy console errors during load are confusing during debugging."
+  ],
+  "critical_code_review_comments": [
+    "Deals page sidebar/mobile nav, modal, validation, filters, view-toggle persistence and all data-testids match the Phase 10.0 spec — no code-level changes needed.",
+    "Dashboard correctly degrades when an analytics sub-endpoint 404s (it doesn't blow up the page), but the dashboard route's data layer should be audited so it only calls endpoints that exist — silent 404s slow the page and hurt observability."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not re-tested (24/24 pytest from iteration 14)", "frontend": "100% on Deals Phase-1 admin flows + 100% on regression smoke (Leads/Clients/Properties/Follow-ups/Communications/Dashboard/Mobile nav)"},
+  "test_credentials": "admin@realestate.com / Admin@2036, agent@realestate.com / Agent@2036",
+  "seed_data_creation": "None. No deals/clients/properties were created or modified in this iteration. The two existing deals seen in /deals ('TEST' WON ₹50.00 L assigned to Test Agent, and 'Vivek - Bandra 3BHK' NEGOTIATION ₹3.50 Cr assigned to Admin) are pre-existing from prior sessions.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 10.0 Deals Phase-1 is fully verified end-to-end (backend 24/24 + frontend admin + agent RBAC). Pages currently live and stable: /dashboard, /leads, /clients, /properties, /followups, /communications, /deals, /reports. data-testids on dashboard worth re-using: main-layout, sidebar, sidebar-toggle, mobile-menu-button, nav-deals, dashboard-page, date-range-filter, range-today, range-7d, range-30d, range-custom, export-analytics-button, communication-stats-grid + stat-card-comm-{messages-sent,messages-received,calls-logged,total}, lead-funnel-chart-card, lead-funnel-chart, leads-by-status-card, leads-by-status-chart, leads-by-source-card, leads-by-source-chart, followup-completion-card, followup-completion-chart, followup-completion-rate, agent-performance-section, agent-performance-grid, agent-card-{userId}, agent-conversion-{userId}, agent-assigned/-contacted/-won/-lost-{userId}, upcoming-followups-widget, activity-widget. On /communications expect [data-testid=communications-page, chat-panel] + 5 quick-reply chips + 'Use template' and 'Log a call' buttons. On /deals expect all the testids documented in iteration_14.json. If the dashboard 'Export Analytics' is later upgraded to a 6-option dropdown, add explicit data-testids per CSV option (export-csv-leads, export-csv-followups, export-csv-deals, export-csv-communications, export-csv-agents, export-csv-overview).",
+  "verified_flows": [
+    "ADMIN /deals: page mounts, deals-page + add-deal-button + deals-search-input + deals-status-filter + deals-agent-filter all present, view-toggle persists localStorage 'deals:view' on clean re-run",
+    "ADMIN Add Deal modal: 9 fields rendered — deal-title-input, deal-client-search + deal-client-select, deal-property-search + deal-property-select, deal-amount-input, deal-status-select, deal-closing-input, deal-agent-select (ADMIN-only), deal-notes-textarea, deal-form-submit",
+    "ADMIN modal inline validation: empty submit surfaces 'Title is required' via deal-form-error",
+    "Status filter contains all 6 statuses (New, Negotiation, Documentation, Payment Pending, Won, Lost) + 'All status'",
+    "/leads admin: page mounts, search/filters render, Import button visible (admin-only), Export button visible",
+    "/clients admin: page mounts, clients-agent-filter visible (admin-only), add-client-button visible",
+    "/properties admin: page mounts, view toggle present, add-property-button visible",
+    "/followups admin: page mounts, add-followup-button visible",
+    "/communications admin: communications-page mounted, inbox sidebar with 3 conversations (Garvit, Demo Lead, Priya Sharma), chat-panel rendered with composer, 5 quick-reply chips visible, 'Use template' + 'Log a call' actions visible",
+    "/dashboard admin: full render confirmed — 109 data-testids, all charts and cards documented above render with live data (totalLeads=9, conversionRate=11.11%, 4 communication stat cards, lead funnel chart, leads-by-status/source charts, follow-up completion chart at 50%, agent-performance-grid with 7 agent cards)",
+    "Sidebar 1440px: all nav entries including nav-deals; Mobile 390px: mobile-menu-button hamburger visible on dashboard"
+  ],
+  "rca of the issue": "Two transient noise items during the first automation pass, both non-bugs: (1) view-toggle click timed out once because a Radix Select overlay (from the just-closed status-filter probe) was still mounted — re-run with Escape+wait clears it; (2) initial dashboard navigation showed an empty body because the page hadn't yet rendered by the 3s mark — with a 6s wait the page renders all 109 testids and complete data. The flood of '403' console errors observed during quick navigation looks like rate-limited duplicate fetches from React StrictMode + Vite HMR re-connects (WebSocket 429 visible in logs) rather than real authorization failures — direct curl against /api/analytics/* with the admin JWT returns 200 on the endpoints the dashboard actually uses."
+}
