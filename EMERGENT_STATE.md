@@ -52,6 +52,54 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 14.0: SUPER_ADMIN role + 3-tier RBAC hierarchy** — COMPLETE (2026-05-21)
+  - **Scope**: Introduces a third role tier on top of the existing ADMIN/AGENT model: `SUPER_ADMIN > ADMIN > AGENT`. Pure additive RBAC enhancement — no architecture change, no auth-flow change, no user-management UX rewrite. Every existing `requireRole('ADMIN')` callsite continues to work unchanged because SUPER_ADMIN implicitly satisfies ADMIN-level role checks at the middleware layer.
+  - **Role hierarchy** (enforced at middleware + service + UI layers):
+    - **SUPER_ADMIN** — owner tier. Can create ADMIN + AGENT + SUPER_ADMIN. Can promote ADMIN → SUPER_ADMIN, demote SUPER_ADMIN → ADMIN. Full access to system settings, user management, reports.
+    - **ADMIN** — manager tier. Can create AGENT only. Can edit AGENT only. Cannot create/edit/promote ADMIN or SUPER_ADMIN. Retains all pre-existing tenant-wide visibility into leads/deals/properties/clients.
+    - **AGENT** — unchanged. No user-management permissions; route-level guard returns 403.
+  - **Safety guards** (NEVER bypassable, enforced in `user.service.ts`):
+    - `CANNOT_DISABLE_SELF` (400) — preserved from legacy.
+    - `LAST_ADMIN` (400) — preserved; counts ADMIN role exclusively.
+    - `LAST_SUPER_ADMIN` (400) — NEW. Cannot demote, disable, or remove the last active SUPER_ADMIN (even by self-demotion).
+    - `FORBIDDEN_ROLE_ASSIGNMENT` (403) — NEW. Returned when the actor tries to create/promote into a role they cannot assign (e.g. ADMIN attempting role=ADMIN or role=SUPER_ADMIN).
+    - `FORBIDDEN_TARGET` (403) — NEW. Returned when the actor tries to touch (any edit, even just a name change) a row at or above their tier (e.g. ADMIN editing another ADMIN or any SUPER_ADMIN).
+  - **Backend changes (minimal-touch, additive)**:
+    - `prisma/schema.prisma` — `Role` enum extended with `SUPER_ADMIN`. New migration `20260521090000_add_super_admin_role` runs `ALTER TYPE "Role" ADD VALUE 'SUPER_ADMIN'` — pre-existing ADMIN/AGENT rows unaffected.
+    - `scripts/seed.ts` — On every boot, if no SUPER_ADMIN exists in the DB, automatically promote the **earliest user** (`orderBy: { createdAt: 'asc' }`) to SUPER_ADMIN + ensure `isActive: true`. Does NOT hardcode an email. Idempotent: once a SUPER_ADMIN exists, the block is a no-op. This is how Phase 14.0 migrated existing deployments from the 2-tier to the 3-tier model with zero manual SQL.
+    - `middleware/auth.ts` — `requireRole(...roles)` extended so SUPER_ADMIN implicitly passes any check that lists 'ADMIN'. Every existing `requireRole('ADMIN')` line (8+ routes: users, reports, settings, system, leads import/delete/assign, etc.) keeps working — SUPER_ADMIN now inherits all of them. AGENT-restricted routes are unchanged.
+    - `lib/roles.ts` — NEW helper module. Exports `isAdminLevel(role)` (true for ADMIN or SUPER_ADMIN) and `isSuperAdmin(role)`. Used in place of bare `role === 'ADMIN'` comparisons in controllers and services so SUPER_ADMIN inherits ADMIN-level scoping (e.g. "see all leads / deals / clients / properties" instead of just own).
+    - `controllers/{lead,deal,client,property,followup,user}.controller.ts` + `services/{analytics,notification,communication}.service.ts` — every `req.user.role === 'ADMIN'` / `userRole === 'ADMIN'` / `req.user.role !== 'ADMIN'` was replaced with `isAdminLevel(...)`. The dozens of `=== 'AGENT'` patterns (the inverse-narrowing case) were left untouched because they already correctly include SUPER_ADMIN (SUPER_ADMIN is not AGENT, so SUPER_ADMIN bypasses the narrowing as intended).
+    - `services/user.service.ts` — Rewrote with explicit hierarchy logic:
+      * `rolesActorCanAssign(actorRole)` — returns the set of roles the actor can assign. SUPER_ADMIN → [SUPER_ADMIN, ADMIN, AGENT]; ADMIN → [AGENT]; AGENT → [].
+      * `actorCanManageTarget(actorRole, targetRole)` — SUPER_ADMIN can touch anyone; ADMIN can only touch AGENT.
+      * `createUser` — guards against forbidden role assignment.
+      * `updateUser` — guards forbidden target AND forbidden role assignment, then layers self-disable + last-SUPER_ADMIN + last-ADMIN guards on top.
+    - `controllers/user.controller.ts` — `VALID_ROLES` updated to include `SUPER_ADMIN`. Passes `req.user.role` as `actorRole` to the service. Error mapping extended for new codes.
+  - **Frontend changes (minimal-touch, additive)**:
+    - `lib/roles.ts` — Mirror of backend helper. `isAdminLevel`, `isSuperAdmin`.
+    - `types/index.ts` — `User.role` and `UserRole` widened to include `SUPER_ADMIN`.
+    - `services/users.ts` — `ManagedRole` type + `rolesActorCanAssign(actorRole)` helper (mirrors backend) + `ROLE_LABELS` lookup ({SUPER_ADMIN:'Super Admin', ADMIN:'Admin', AGENT:'Agent'}).
+    - `services/settings.ts` — `Profile.role` widened to include SUPER_ADMIN.
+    - `components/users/UserFormModal.tsx` — Role dropdown is now dynamically filtered by `rolesActorCanAssign(currentUser.role)`. SUPER_ADMIN sees [SUPER_ADMIN, ADMIN, AGENT]; ADMIN sees [AGENT] only. When editing, the target's current role is also included (so an ADMIN-viewing-AGENT row can still see "Agent" selected without seeing other options). Test-IDs: `user-role-select`, `user-role-option-{SUPER_ADMIN|ADMIN|AGENT}`. SUPER_ADMIN promotion (new or edit), SUPER_ADMIN demotion (edit), and SUPER_ADMIN creation now fire a separate confirmation dialog (`super-admin-confirm-modal`, `super-admin-confirm-submit`, `super-admin-confirm-cancel`) before submitting to prevent accidents.
+    - `pages/UsersPage.tsx` — Role filter dropdown shows a SUPER_ADMIN option only to SUPER_ADMIN viewers (`users-role-filter-super`). SUPER_ADMIN rows render a distinctive amber `Crown`-icon badge (`user-role-{id}`). Edit + Disable buttons are disabled for rows the current user cannot manage (ADMIN → cannot click on ADMIN/SUPER_ADMIN rows). Disabling a SUPER_ADMIN row opens a dedicated confirmation dialog (`disable-super-admin-modal`, `disable-super-admin-submit`) which still surfaces the LAST_SUPER_ADMIN backend error if it fires.
+    - `App.tsx` — `<ProtectedRoute roles={['ADMIN']} />` → `<ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']} />` for /users + /reports.
+    - `components/layout/nav-items.ts` — Reports + Users nav entries' `roles` array extended to include SUPER_ADMIN so the sidebar shows the entries.
+    - All 18+ pre-existing `user?.role === 'ADMIN'` checks scattered across Lead/Deal/Client/Property/FollowUp form modals and detail pages were swapped to `isAdminLevel(user?.role)` so SUPER_ADMIN inherits the same UX surface (agent-assignment dropdowns, "show all rows" badges, manage-actions, etc.) as ADMIN.
+  - **Migration of existing deployments**: A previous deployment on the shared Neon DB had already auto-promoted `admin@realestate.com` to SUPER_ADMIN via the seed when the migration ran (the boot picked up the new enum value + ran `seedAdmin()` which promoted the earliest user). A second hand-fix re-activated that user since prior tests had disabled it. Going forward, every fresh boot is a no-op: the earliest user is already SUPER_ADMIN and `seedAdmin` logs `ℹ️  SUPER_ADMIN already present; skipping auto-promotion`.
+  - **Test users in DB** (Phase 14.0 onwards):
+    - `admin@realestate.com` / `Admin@2036` — SUPER_ADMIN (auto-promoted root).
+    - `manager@realestate.com` / `Manager@2036` — ADMIN (seeded mid-tier for RBAC testing).
+    - `agent@realestate.com` / `Agent@2036` — AGENT.
+  - **Verified end-to-end** (curl + testing subagent — `/app/test_reports/iteration_18.json`):
+    - 25/26 backend RBAC tests PASS, 1 SKIPPED safely (LAST_ADMIN guard skip-by-design to avoid system lockout when >1 active ADMIN exists). 0 critical issues, 0 minor issues.
+    - All 16 review requirements verified individually — SUPER_ADMIN creates ADMIN/AGENT/SUPER_ADMIN (3 tests), ADMIN forbidden from creating ADMIN/SUPER_ADMIN (FORBIDDEN_ROLE_ASSIGNMENT), AGENT 403 on POST /api/users, ADMIN editing ADMIN/SUPER_ADMIN → FORBIDDEN_TARGET, SUPER_ADMIN promote/demote works, last-SUPER_ADMIN self-demote 400 LAST_SUPER_ADMIN, self-disable 400 CANNOT_DISABLE_SELF, GET /api/auth/me reports SUPER_ADMIN for root, 4 ADMIN-gated endpoints (/api/reports/leads, /api/system/status, /api/settings/tenant, /api/leads/sample-template) all 200 for SUPER_ADMIN, AGENT lead-scoping regression preserved, invalid role 400, GET /api/users?role=SUPER_ADMIN filter works.
+    - Regression suite explicitly skipped per spec ("No full regression suite"), but every controller that consumes `isAdminLevel` was smoke-tested via the existing AGENT/ADMIN scoping in iteration_18 — preserved.
+  - **Files modified (Phase 14.0)**:
+    - Backend (10): `prisma/schema.prisma`, new migration `20260521090000_add_super_admin_role/migration.sql`, `scripts/seed.ts`, `middleware/auth.ts`, new `lib/roles.ts`, `services/user.service.ts`, `services/analytics.service.ts`, `services/notification.service.ts`, `services/communication.service.ts`, `controllers/{user,lead,deal,client,property,followup}.controller.ts` (6 files for the isAdminLevel swap).
+    - Frontend (~22): new `lib/roles.ts`, `types/index.ts`, `services/users.ts`, `services/settings.ts`, `components/users/UserFormModal.tsx`, `pages/UsersPage.tsx`, `App.tsx`, `components/layout/nav-items.ts`, and the 18 files where bare `user.role === 'ADMIN'` was swapped to `isAdminLevel(user.role)`.
+  - **Files NOT touched**: every other backend route, controller, or service; every other frontend page/component beyond the role-comparison swap; auth flow (login/register/me/logout unchanged); Prisma schema for anything except the Role enum; supervisord config (other than the pre-existing supervisord_node_backend.conf which was reseeded this session because the container had lost it).
+
 **Phase 13.0: Cross-module workflow integration (Lead → Client → Deal → Reports)** — COMPLETE (2026-05-20)
   - **Scope**: Stitches the four pre-existing modules into a single continuous CRM journey. Existing functionality (auth, leads, follow-ups, communications, whatsapp, analytics, csv, users, pipeline, properties, clients, deals, reports, notifications, settings) is **never rewritten** — every change is either purely additive or surface-level wiring through pre-existing primitives.
   - **Backend changes (all additive, no migration, no architecture change)**:
