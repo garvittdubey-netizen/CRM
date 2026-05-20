@@ -564,7 +564,7 @@ function PropertyReportSection({
           {loading || !report ? (
             <Skeleton className="h-40 w-full" />
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-5 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-5">
               <div className="grid grid-cols-3 gap-3">
                 <StatCard label="Total" value={report.total} testId="report-properties-total" />
                 <StatCard
@@ -574,27 +574,39 @@ function PropertyReportSection({
                 />
                 <StatCard label="Sold" value={report.sold} testId="report-properties-sold" />
               </div>
-              <ChartContainer height={220} printMode={printing}>
-                <PieChart>
-                  <Pie
-                    data={report.byStatus.filter((b) => b.count > 0)}
-                    dataKey="count"
-                    nameKey="status"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={
-                      ((p: { status?: string; count?: number }) =>
-                        `${p.status}: ${p.count}`) as unknown as undefined
-                    }
-                  >
-                    {report.byStatus.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ChartContainer>
+              {/* Pie-chart cell — wrapped in its own <div> so the ChartContainer
+                  isn't a direct grid child. When `printMode` is on, the
+                  container sets an inline `width` on its wrapper; that
+                  collided with the parent grid's `align-items: center` /
+                  default `justify-items: stretch` resolution and the chart
+                  snapshotted at zero height in the PDF. The wrapper <div>
+                  takes the grid cell's stretch/centre behaviour, leaving
+                  ChartContainer free to size itself exactly like the Lead
+                  and Deal sections do (which were always wrapped). */}
+              <div data-testid="report-properties-by-status-chart">
+                <p className="text-sm font-medium mb-2">By status</p>
+                <ChartContainer height={220} printMode={printing}>
+                  <PieChart>
+                    <Pie
+                      data={report.byStatus.filter((b) => b.count > 0)}
+                      dataKey="count"
+                      nameKey="status"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={
+                        ((p: { status?: string; count?: number }) =>
+                          `${p.status}: ${p.count}`) as unknown as undefined
+                      }
+                    >
+                      {report.byStatus.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ChartContainer>
+              </div>
             </div>
           )}
         </CardContent>
