@@ -89,39 +89,55 @@ function matchingToCandidate(m: MatchingLead): RecipientCandidate {
 }
 
 function detailUrl(propertyId: string): string {
-  // The full origin works in both the preview iframe and the production
-  // domain, and is what a recipient would tap to land on the listing.
+  // Reserved for internal CRM usage only. The customer-facing WhatsApp
+  // message intentionally does NOT include this link — CRM URLs are private.
+  // Kept exported via the unused-export shim below so future internal-only
+  // CRM features (e.g. agent forwarding) can reuse the same builder.
   if (typeof window !== 'undefined') {
     return `${window.location.origin}/properties/${propertyId}`;
   }
   return `/properties/${propertyId}`;
 }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _internalCrmDetailUrl = detailUrl;
 
+/**
+ * Build the customer-facing property summary that gets sent to the lead.
+ *
+ * Strictly removed (vs. earlier iteration):
+ *   - raw Cloudinary image URLs (the image is now sent as a real attachment
+ *     via the new `imageUrl` field — see `sendWhatsApp` in the backend)
+ *   - internal CRM property links (private to the workspace)
+ *
+ * The block ends with a soft call-to-action so the lead has an obvious next
+ * step — replying inside the 24h customer-service window also opens up
+ * free-form follow-up messaging from our side.
+ */
 function buildMessage(property: Property): string {
   const lines: string[] = [];
   lines.push(`🏠 *${property.title}*`);
+  lines.push('');
   lines.push(`📍 ${property.location}, ${property.city}`);
   lines.push(`💰 ${formatPrice(property.price)}`);
-  const facts: string[] = [];
-  if (property.bedrooms) facts.push(`${property.bedrooms} BHK`);
-  facts.push(formatArea(property.area, property.areaUnit));
-  if (property.propertyType) facts.push(property.propertyType);
-  lines.push(`📐 ${facts.join(' · ')}`);
+  if (property.bedrooms) lines.push(`🛏 ${property.bedrooms} BHK`);
+  lines.push(`📐 ${formatArea(property.area, property.areaUnit)}`);
+  if (property.propertyType) lines.push(`🏡 ${property.propertyType}`);
   if (property.description) {
     const trimmed = property.description.replace(/\s+/g, ' ').trim();
     const preview = trimmed.length > 280 ? `${trimmed.slice(0, 280)}…` : trimmed;
     lines.push('');
-    lines.push(preview);
-  }
-  if (property.images?.length) {
-    // Use the Cloudinary helper to serve a sensibly sized variant.
-    const imgUrl = buildCloudinaryUrl(property.images[0], { width: 1000 });
-    lines.push('');
-    lines.push(`📷 ${imgUrl}`);
+    lines.push(`📝 ${preview}`);
   }
   lines.push('');
-  lines.push(`🔗 View details: ${detailUrl(property.id)}`);
+  lines.push(`✨ Interested? Reply to this message and our team will schedule your site visit.`);
   return lines.join('\n');
+}
+
+/** Resolves the first property image to a cdn-optimised URL suitable for
+ *  Meta's image-by-URL upload. Returns null if the property has no images. */
+function resolvePropertyImageUrl(property: Property): string | null {
+  if (!property.images?.length) return null;
+  return buildCloudinaryUrl(property.images[0], { width: 1000 });
 }
 
 export function SharePropertyWhatsAppModal({ open, property, onClose }: Props) {
@@ -135,6 +151,10 @@ export function SharePropertyWhatsAppModal({ open, property, onClose }: Props) {
   const [message, setMessage] = useState('');
   const [statuses, setStatuses] = useState<Record<string, RecipientStatus>>({});
   const [sending, setSending] = useState(false);
+  // Resolved once per property and reused for every recipient — bypasses
+  // ResponsiveContainer-style re-measurement during the send loop.
+  const propertyImageUrl = useMemo(() => resolvePropertyImageUrl(property), [property]);
+  const [includeImage, setIncludeImage] = useState(true);
 
   // Reset everything every time the modal opens with a (potentially) new
   // property so stale selections / send statuses never leak.
@@ -146,6 +166,7 @@ export function SharePropertyWhatsAppModal({ open, property, onClose }: Props) {
     setSearch('');
     setSearchResults([]);
     setMessage(buildMessage(property));
+    setIncludeImage(true);
     // Fetch matching leads — re-uses the existing endpoint, no new backend.
     setMatchingLoading(true);
     propertiesApi
@@ -229,11 +250,17 @@ export function SharePropertyWhatsAppModal({ open, property, onClose }: Props) {
       Object.fromEntries(selectedIds.map((id) => [id, { leadId: id, status: 'sending' as SendStatus }])),
     );
     const trimmed = message.trim();
+    const imageToSend = includeImage && propertyImageUrl ? propertyImageUrl : undefined;
     // Send sequentially so we don't overrun Meta's per-second rate limit and
-    // so each row updates visibly as it completes.
+    // so each row updates visibly as it completes. The backend handles the
+    // "image first, then text" sequencing in one round-trip per recipient.
     for (const id of selectedIds) {
       try {
-        await communicationsApi.sendWhatsApp({ leadId: id, message: trimmed });
+        await communicationsApi.sendWhatsApp({
+          leadId: id,
+          message: trimmed,
+          imageUrl: imageToSend,
+        });
         setStatuses((s) => ({ ...s, [id]: { leadId: id, status: 'ok' } }));
       } catch (e) {
         setStatuses((s) => ({
@@ -247,7 +274,7 @@ export function SharePropertyWhatsAppModal({ open, property, onClose }: Props) {
       }
     }
     setSending(false);
-  }, [canSend, message, selectedIds]);
+  }, [canSend, message, selectedIds, includeImage, propertyImageUrl]);
 
   const okCount = Object.values(statuses).filter((s) => s.status === 'ok').length;
   const failedCount = Object.values(statuses).filter((s) => s.status === 'failed').length;
@@ -466,6 +493,38 @@ export function SharePropertyWhatsAppModal({ open, property, onClose }: Props) {
             </div>
 
             <div className="p-3 border-b flex-1 flex flex-col overflow-hidden">
+              {/* Image preview — shows EXACTLY what the lead will receive as
+                  a native WhatsApp image attachment (no plain-text URL). */}
+              {propertyImageUrl && (
+                <div
+                  className="mb-3 flex items-start gap-3 p-2 rounded-md border bg-muted/30"
+                  data-testid="share-image-preview"
+                >
+                  <img
+                    src={propertyImageUrl}
+                    alt={property.title}
+                    className="h-16 w-16 rounded object-cover shrink-0"
+                    data-testid="share-image-thumb"
+                  />
+                  <div className="flex-1 min-w-0 text-xs">
+                    <p className="font-medium">Image attachment</p>
+                    <p className="text-muted-foreground mt-0.5">
+                      Sent as a native WhatsApp image — appears as a preview, not a link.
+                    </p>
+                    <label className="inline-flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={includeImage}
+                        onChange={(e) => setIncludeImage(e.target.checked)}
+                        disabled={sending}
+                        className="h-3.5 w-3.5"
+                        data-testid="share-include-image-checkbox"
+                      />
+                      <span>Include image</span>
+                    </label>
+                  </div>
+                </div>
+              )}
               <Label htmlFor="share-message" className="text-xs">
                 Message
               </Label>
@@ -479,7 +538,9 @@ export function SharePropertyWhatsAppModal({ open, property, onClose }: Props) {
                 placeholder="Property summary…"
               />
               <p className="text-[10px] text-muted-foreground mt-1.5">
-                Sent as plain text. Image URLs render as previews in the recipient's WhatsApp.
+                {propertyImageUrl && includeImage
+                  ? 'The image is delivered first, then this message — both appear in the lead\u2019s history.'
+                  : 'Sent as plain text. No internal links or raw image URLs are shared with the recipient.'}
               </p>
             </div>
 

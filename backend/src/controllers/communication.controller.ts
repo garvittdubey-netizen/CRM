@@ -32,6 +32,7 @@ export async function sendWhatsApp(req: Request, res: Response): Promise<void> {
     const record = await comm.sendWhatsApp({
       leadId: req.body.leadId,
       message: req.body.message,
+      imageUrl: req.body.imageUrl,
       templateName: req.body.templateName,
       templateLang: req.body.templateLang,
       templateParams: req.body.templateParams,

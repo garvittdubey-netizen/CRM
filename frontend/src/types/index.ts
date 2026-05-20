@@ -188,6 +188,9 @@ export interface WhatsAppTemplate {
 export interface SendWhatsAppPayload {
   leadId: string;
   message?: string;
+  /** Optional public image URL — sent as a native WhatsApp image attachment
+   *  BEFORE the text body. Used by the Property → Share workflow. */
+  imageUrl?: string;
   templateName?: string;
   templateLang?: string;
   templateParams?: string[];

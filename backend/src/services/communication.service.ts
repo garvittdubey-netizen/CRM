@@ -58,6 +58,12 @@ async function assertLeadAccess(
 export interface SendWhatsAppInput {
   leadId: string;
   message?: string;
+  /** Public image URL (Cloudinary, etc.). When provided, an image message is
+   *  sent FIRST as a native attachment, then the text body follows as a
+   *  second message — exactly mirroring how a human would share a property.
+   *  Each Meta call is persisted as its own Communication row for clean
+   *  audit history. */
+  imageUrl?: string;
   templateName?: string;
   templateLang?: string;
   templateParams?: string[];
@@ -75,6 +81,36 @@ export async function sendWhatsApp(input: SendWhatsAppInput) {
   const to = normalisePhone(lead.phone);
 
   const isTemplate = !!input.templateName;
+  const hasImage = !!input.imageUrl && !isTemplate;
+
+  // ── 1. Image first (when present and not a template send) ─────────────────
+  // We log the image send as its own Communication row so the per-lead
+  // timeline accurately shows "image then text". The internal message field
+  // stores the image URL for audit; only the recipient receives the native
+  // image attachment.
+  if (hasImage) {
+    const imgResult = await whatsapp.sendImage(to, input.imageUrl!);
+    await prisma.communication.create({
+      data: {
+        leadId: input.leadId,
+        type: CommunicationType.WHATSAPP,
+        direction: CommunicationDirection.OUTBOUND,
+        message: `📷 Property image: ${input.imageUrl}`,
+        status: 'SENT',
+        whatsappMessageId: imgResult.whatsappMessageId,
+        createdById: input.userId,
+      },
+    });
+    await activity.log({
+      userId: input.userId,
+      leadId: input.leadId,
+      action: 'WHATSAPP_SENT',
+      description: `Sent property image to ${lead.fullName}`,
+      metadata: { whatsappMessageId: imgResult.whatsappMessageId, isImage: true },
+    });
+  }
+
+  // ── 2. Text or template ───────────────────────────────────────────────────
   let result: { whatsappMessageId: string };
   if (isTemplate) {
     result = await whatsapp.sendTemplate(
@@ -116,8 +152,14 @@ export async function sendWhatsApp(input: SendWhatsAppInput) {
     action: 'WHATSAPP_SENT',
     description: isTemplate
       ? `Sent WhatsApp template "${input.templateName}" to ${lead.fullName}`
-      : `Sent WhatsApp message to ${lead.fullName}`,
-    metadata: { whatsappMessageId: result.whatsappMessageId, isTemplate },
+      : hasImage
+        ? `Sent property details (with image) to ${lead.fullName}`
+        : `Sent WhatsApp message to ${lead.fullName}`,
+    metadata: {
+      whatsappMessageId: result.whatsappMessageId,
+      isTemplate,
+      includedImage: hasImage,
+    },
   });
 
   return record;

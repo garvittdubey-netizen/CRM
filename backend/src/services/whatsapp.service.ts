@@ -97,6 +97,36 @@ export async function sendText(to: string, message: string): Promise<SendResult>
   return { whatsappMessageId: id, raw: body };
 }
 
+/**
+ * Send an image hosted at a public URL. Meta downloads the image server-side
+ * and delivers it as a native image attachment (NOT a plain link), which is
+ * what we want when sharing a property card.
+ *
+ * The `caption` is optional and renders below the image; we leave it empty
+ * for the property-share flow because the caller queues a separate, formatted
+ * text message right after for richer formatting.
+ */
+export async function sendImage(
+  to: string,
+  imageUrl: string,
+  caption?: string,
+): Promise<SendResult> {
+  const body = (await graphFetch(`/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'image',
+      image: caption ? { link: imageUrl, caption } : { link: imageUrl },
+    }),
+  })) as MetaSendResponse;
+
+  const id = body.messages?.[0]?.id;
+  if (!id) throw new WhatsAppApiError('WhatsApp API did not return a message id', 502);
+  return { whatsappMessageId: id, raw: body };
+}
+
 export async function sendTemplate(
   to: string,
   templateName: string,

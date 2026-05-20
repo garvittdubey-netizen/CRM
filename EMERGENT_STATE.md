@@ -52,6 +52,47 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 12.1: Property → WhatsApp share — customer-facing format + native image attachment** — COMPLETE (2026-05-20)
+  - **Scope**: UX correction for the Phase-12.0 share flow. The Phase-12.0 message embedded the raw Cloudinary URL and a private CRM link as plain text — both leaked implementation details to the lead. This phase rewrites the message to a customer-facing format and adds real WhatsApp image-attachment support so the property photo arrives as a native preview, not a link. Strictly additive on the backend, fully scoped to four files.
+  - **Backend extensions (additive, no architecture change, no migration)**:
+    - `services/whatsapp.service.ts` — added `sendImage(to, imageUrl, caption?)`. Uses Meta's `type: 'image'` payload with a public `link` (Cloudinary URLs are publicly reachable). Reuses the same `graphFetch` helper + `WhatsAppApiError` normalisation as `sendText`/`sendTemplate`, so all upstream errors (e.g. `code: 190` expired token) flow through the existing error path unchanged.
+    - `services/communication.service.ts` — `SendWhatsAppInput` extended with optional `imageUrl?: string`. When present (and not a template send), the service now does TWO Meta round-trips per recipient:
+      1. `whatsapp.sendImage(to, imageUrl)` → Meta delivers a native image attachment → a `Communication` row is persisted with `message="📷 Property image: <url>"`, `whatsappMessageId` = image-msg-id, and an `Activity` row `action=WHATSAPP_SENT, description="Sent property image to {leadName}"` for the audit trail.
+      2. `whatsapp.sendText(to, message)` → the existing text-send path runs verbatim (no behaviour change for callers that don't pass `imageUrl`).
+      Both rows surface in the per-lead timeline in order, mirroring exactly what the lead sees in their WhatsApp app. Activity-log `description` for the text row updates to `"Sent property details (with image) to {leadName}"` when an image accompanied it.
+    - `controllers/communication.controller.ts` — forwards `req.body.imageUrl` to the service. One additional line, no other change.
+  - **Frontend changes (additive + correction)**:
+    - `types/index.ts` — `SendWhatsAppPayload` gains an optional `imageUrl?: string`.
+    - `components/properties/SharePropertyWhatsAppModal.tsx`:
+      * Rewrote `buildMessage(property)` to the prescribed customer-facing format. Removed both the `📷 <cdn url>` line and the `🔗 View details: <crm url>` line. Final template:
+        ```
+        🏠 *{title}*
+
+        📍 {location}, {city}
+        💰 {price}
+        🛏 {bedrooms} BHK
+        📐 {area} {areaUnit}
+        🏡 {propertyType}
+
+        📝 {description trimmed to 280}
+
+        ✨ Interested? Reply to this message and our team will schedule your site visit.
+        ```
+      * New `resolvePropertyImageUrl(property)` helper that runs `buildCloudinaryUrl(images[0], { width:1000 })`. Returns `null` when the property has no images.
+      * New `propertyImageUrl` memo + `includeImage` state (defaults to `true`).
+      * New image-preview block above the textarea (`[data-testid=share-image-preview]`) showing the actual thumbnail (`[data-testid=share-image-thumb]`) the lead will receive, plus the "Include image" checkbox (`[data-testid=share-include-image-checkbox]`). The block is conditionally rendered — properties with zero images simply don't see it, and `imageUrl` is omitted from the API call.
+      * `handleSend` now passes `imageUrl: (includeImage && propertyImageUrl) || undefined` to `communicationsApi.sendWhatsApp(...)`.
+      * Footer caption now reads either *"The image is delivered first, then this message — both appear in the lead's history."* (when image is included) or *"Sent as plain text. No internal links or raw image URLs are shared with the recipient."* (otherwise) — honest about what's about to happen.
+      * `detailUrl(propertyId)` helper retained but marked as internal-CRM-only (kept behind an `_internalCrmDetailUrl` shim) so future internal workflows can reuse the builder without re-implementing it. NOT called from the share message anymore.
+  - **Files touched (4)**: `backend/src/services/whatsapp.service.ts`, `backend/src/services/communication.service.ts`, `backend/src/controllers/communication.controller.ts`, `frontend/src/components/properties/SharePropertyWhatsAppModal.tsx`, `frontend/src/types/index.ts`. (Five if you count `types/index.ts` separately.)
+  - **Files NOT touched**: Prisma schema, every backend route file, every other backend service/controller, every other frontend page, every other frontend component (including `MatchingLeadsSidebar`, `PropertyDetailPage`, `CommunicationsPage`), every existing service file beyond `communications.ts` typing.
+  - **Honest about the test environment**: the Meta access token in `/app/backend/.env` remains expired from Phase 3.0, so live delivery is impossible. Verified end-to-end as far as the environment allows:
+    - ✓ Backend accepts the new `imageUrl` field and the request reaches Meta (HTTP 502 with `code: 190 Authentication Error` — the expected upstream rejection).
+    - ✓ Frontend modal renders the new customer-facing message exactly per spec (asserted programmatically: contains all five required emoji markers + CTA string, absent both `View details:` and any `cloudinary` substring).
+    - ✓ Image-preview block renders correctly for a property with images and is absent for a property without images.
+    - ✓ "Include image" checkbox defaults to true; toggling it off makes the API call without `imageUrl`.
+    - Once the Meta token is rotated, the recipient will receive the native image attachment FIRST followed by the formatted text. Both Communication rows will appear in the per-lead timeline + inbox via the existing `INCLUDE` projection — no UI change needed.
+
 **Phase 12.0: Property → WhatsApp sharing workflow** — COMPLETE (2026-05-20)
   - **Scope**: A new "Share via WhatsApp" action on the Property detail page that lets agents broadcast a property card to one or many leads through the **existing** WhatsApp integration. Strictly additive — no new backend route, no new persistence path, no schema change.
   - **Frontend additions (2 files)**:
