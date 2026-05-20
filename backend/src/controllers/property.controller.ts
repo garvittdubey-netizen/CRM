@@ -140,6 +140,12 @@ export async function removeProperty(req: Request, res: Response): Promise<void>
       res.status(404).json({ error: 'Property not found' });
       return;
     }
+    if (err.code === 'P2003') {
+      res.status(400).json({
+        error: 'Cannot delete property: it is referenced by an existing deal',
+      });
+      return;
+    }
     res.status(500).json({ error: 'Failed to delete property' });
   }
 }

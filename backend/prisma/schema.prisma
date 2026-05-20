@@ -23,6 +23,7 @@ model User {
   properties      Property[]      @relation("PropertyOwnerAgent")
   clients         Client[]        @relation("ClientAssignedAgent")
   clientActivities ClientActivity[] @relation("ClientActivityActor")
+  deals           Deal[]          @relation("DealAssignedAgent")
 
   @@map("users")
 }
@@ -43,6 +44,7 @@ model Property {
   images        String[]
   ownerAgentId  String?
   ownerAgent    User?          @relation("PropertyOwnerAgent", fields: [ownerAgentId], references: [id])
+  deals         Deal[]         @relation("PropertyDeals")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -77,6 +79,7 @@ model Client {
   assignedAgentId   String?
   assignedAgent     User?            @relation("ClientAssignedAgent", fields: [assignedAgentId], references: [id])
   activities        ClientActivity[] @relation("ClientToActivities")
+  deals             Deal[]           @relation("ClientDeals")
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
@@ -229,4 +232,37 @@ enum CommunicationType {
 enum CommunicationDirection {
   INBOUND
   OUTBOUND
+}
+
+
+model Deal {
+  id                  String     @id @default(cuid())
+  title               String
+  propertyId          String
+  property            Property   @relation("PropertyDeals", fields: [propertyId], references: [id], onDelete: Restrict)
+  clientId            String
+  client              Client     @relation("ClientDeals", fields: [clientId], references: [id], onDelete: Restrict)
+  assignedAgentId     String
+  assignedAgent       User       @relation("DealAssignedAgent", fields: [assignedAgentId], references: [id])
+  amount              Decimal    @db.Decimal(15, 2)
+  expectedClosingDate DateTime?
+  status              DealStatus @default(NEW)
+  notes               String?    @db.Text
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@index([status, createdAt])
+  @@index([assignedAgentId])
+  @@index([propertyId])
+  @@index([clientId])
+  @@map("deals")
+}
+
+enum DealStatus {
+  NEW
+  NEGOTIATION
+  DOCUMENTATION
+  PAYMENT_PENDING
+  WON
+  LOST
 }

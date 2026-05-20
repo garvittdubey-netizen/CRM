@@ -188,6 +188,12 @@ export async function removeClient(req: Request, res: Response): Promise<void> {
       res.status(404).json({ error: 'Client not found' });
       return;
     }
+    if (err.code === 'P2003') {
+      res.status(400).json({
+        error: 'Cannot delete client: it is referenced by an existing deal',
+      });
+      return;
+    }
     res.status(500).json({ error: 'Failed to delete client' });
   }
 }

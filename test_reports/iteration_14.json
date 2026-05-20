@@ -1,0 +1,61 @@
+{
+  "summary": "Phase 10.0 Deals Phase-1 — full backend + frontend regression. 24/24 pytest tests pass against Neon Postgres via the public preview URL. Covers Deal CRUD, RBAC (ADMIN any / AGENT own only / AGENT cannot reassign), search across title/notes/property.title/property.city/client.fullName/client.phone, status + assignedAgentId filters, pagination shape {deals,total,page,limit,pages}, embedded property/client/assignedAgent relations, P2003 → 400 'Invalid property, client or agent reference' on bad FK refs, and the critical onDelete=Restrict on Property + Client when referenced by an existing Deal. Frontend /deals: page mounts for both ADMIN and AGENT, all data-testids documented in EMERGENT_STATE.md are present, view-toggle persists localStorage 'deals:view' (grid/list), Add Deal modal inline 'Title is required' error surfaces, ADMIN sees deals-agent-filter + deal-agent-select, AGENT does NOT see either and the seeded admin-owned deal is correctly hidden (empty state shown). Regression: /api/health, /api/leads, /api/properties, /api/clients, /api/followups, /api/communications, /api/analytics/overview, /api/users all return 200.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/properties/:id and DELETE /api/clients/:id", "issue": "Originally returned 500 'Failed to delete' when a Deal references the row (Prisma P2003). Fixed in this iteration by mapping P2003 → 400 with a descriptive message, mirroring the Deal controller pattern. Re-tested and now returns 400."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Add/Edit Deal modal", "issues": ["a11y console warning: 'Missing Description or aria-describedby for DialogContent'. Same Radix warning as the Client and Lead modals — non-blocking. Recommend adding a sr-only DialogDescription for consistency."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_deals.py",
+    "/app/test_reports/pytest/deals_results.xml"
+  ],
+  "action_items": [
+    "Optional: add sr-only DialogDescription to DealFormModal to silence the Radix a11y warning (same fix already pending for Client and Lead modals).",
+    "Optional: status-filter and agent-filter use shadcn Select (Radix) — options are only rendered when the trigger is opened. If automated tests want to count options at rest, render them as native <option> or expose data-testid on each SelectItem."
+  ],
+  "critical_code_review_comments": [
+    "controllers/property.controller.ts removeProperty — previously surfaced a P2003 (FK violation when a deal references the property) as a generic 500. Fixed in this iteration to return 400 with 'Cannot delete property: it is referenced by an existing deal'. This was required by the Phase-1 spec and is now consistent with the Deal controller's P2003 mapping.",
+    "controllers/client.controller.ts removeClient — same fix as above for client deletion; now returns 400 'Cannot delete client: it is referenced by an existing deal' on P2003.",
+    "controllers/deal.controller.ts addDeal — when ADMIN passes assignedAgentId === '' or null explicitly, `req.body.assignedAgentId || req.user!.id` silently coerces it to the admin's own id. Acceptable because the schema requires an owner, but document this fallback so it isn't mistaken for 'unassigned'. Identical to the Lead/Client pattern.",
+    "services/deal.service.ts toDto uses `any` — same pattern as Lead/Property/Client. Acceptable.",
+    "services/deal.service.ts listDeals — building `where.OR` from search inputs is fine, but every OR branch is a separate join through the same Prisma relation. For very large tables consider indexing `Property.title`, `Property.city`, `Client.fullName`, `Client.phone`. Low priority.",
+    "DealCard / DealListRow — RBAC gating of edit/delete is done client-side; backend already returns 403 for cross-agent attempts so this is defence-in-depth and correct."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_deals.py",
+    "/app/backend/src/controllers/property.controller.ts",
+    "/app/backend/src/controllers/client.controller.ts"
+  ],
+  "success_rate": {"backend": "100% (24/24)", "frontend": "100% (all critical UI/RBAC flows verified)"},
+  "test_credentials": "admin@realestate.com / Admin@2036, agent@realestate.com / Agent@2036",
+  "seed_data_creation": "All TEST_* deals/property/client created during pytest were cleaned up via session-scoped DELETE fixtures. The pre-existing smoke-test deal 'Vivek - Bandra 3BHK' (NEGOTIATION, ₹3.50 Cr) seeded by the main agent is untouched and remains in Neon.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 10.0 Deals Phase-1 is stable. Backend test suite: /app/backend/tests/test_deals.py (24 tests). Key data-testids: deals-page, add-deal-button, deals-view-toggle/-grid/-list, deals-filters, deals-search-input, deals-status-filter, deals-agent-filter (ADMIN only), deals-clear-filters, deals-grid, deals-list, deals-pagination/-prev/-next, deals-empty, deal-card-:id, edit-deal-:id, delete-deal-:id, deal-row-:id, edit-deal-row-:id, delete-deal-row-:id; modal: deal-title-input, deal-amount-input, deal-closing-input, deal-notes-textarea, deal-client-search, deal-client-select, deal-property-search, deal-property-select, deal-status-select, deal-agent-select (ADMIN only), deal-form-error, deal-form-submit. View toggle persists to localStorage key 'deals:view'. RBAC: AGENT scope is implicit (server-side filter via buildDealScope) — no agent filter UI rendered for agents. P2003 FK violations are now consistently mapped to 400 across Deal, Property and Client delete endpoints. For Phase-2 (Kanban/timeline) be aware the current GET /api/deals already embeds property+client+assignedAgent so the frontend doesn't need extra fetches.",
+  "verified_flows": [
+    "Backend GET /api/deals shape {deals,total,page,limit,pages}",
+    "Backend POST /api/deals validates title required (400) and amount > 0 (400)",
+    "Backend POST /api/deals bad propertyId/clientId/assignedAgentId → 400 'Invalid property, client or agent reference'",
+    "Backend POST /api/deals ADMIN with no assignedAgentId defaults to admin id; with explicit agent id honours it",
+    "Backend POST /api/deals AGENT silently coerces assignedAgentId back to self",
+    "Backend GET /api/deals?search=... case-insensitive across title/notes + property + client fields",
+    "Backend GET /api/deals?status=... filter (DOCUMENTATION, WON, etc.)",
+    "Backend GET /api/deals AGENT scope hides admin-owned deals + GET /api/deals/:id returns 403 cross-agent",
+    "Backend PUT /api/deals/:id ADMIN edits amount + status; persists on subsequent GET",
+    "Backend PUT /api/deals/:id AGENT 403 on others' deal; 403 when trying to change assignedAgentId on own deal",
+    "Backend DELETE /api/deals/:id ADMIN 204 + subsequent GET 404",
+    "Backend DELETE /api/properties/:id and /api/clients/:id with referencing deal → 400 (onDelete=Restrict honoured)",
+    "Frontend ADMIN /deals: page mounts, sidebar Deals active, all testids present, view-toggle persists 'deals:view' in localStorage, inline 'Title is required' error on empty submit, deals-agent-filter + deal-agent-select visible",
+    "Frontend AGENT /deals: page mounts, deals-agent-filter hidden, deal-agent-select hidden in modal, admin-owned seed deal hidden, deals-empty rendered",
+    "Regression: /api/health, /api/leads, /api/properties, /api/clients, /api/followups, /api/communications, /api/analytics/overview, /api/users all 200"
+  ],
+  "rca of the issue": "Property and Client DELETE endpoints were not mapping Prisma P2003 (foreign-key constraint failure when an existing Deal references the row) to a clean 4xx status. They fell through to the generic 'res.status(500)' branch, returning 500 'Failed to delete property|client'. Root cause: the controllers were authored before the Deal module added FK references, so only P2025 (not-found) was special-cased. Fix: add an `if (err.code === 'P2003') res.status(400)` branch mirroring the Deal controller. The underlying onDelete=Restrict behaviour itself was always working — the deal stayed intact in all cases — only the HTTP error shape was wrong."
+}

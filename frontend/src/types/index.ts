@@ -419,3 +419,64 @@ export interface ClientTimelineItem {
   createdAt: string;
   actor: { id: string; name: string } | null;
 }
+
+// ── Deal Module ──────────────────────────────────────────────────────────────
+
+export type DealStatus =
+  | 'NEW'
+  | 'NEGOTIATION'
+  | 'DOCUMENTATION'
+  | 'PAYMENT_PENDING'
+  | 'WON'
+  | 'LOST';
+
+export interface Deal {
+  id: string;
+  title: string;
+  propertyId: string;
+  property: {
+    id: string;
+    title: string;
+    city: string;
+    location: string;
+    price: number | null;
+    images: string[];
+    status: string;
+  } | null;
+  clientId: string;
+  client: {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    email: string | null;
+  } | null;
+  assignedAgentId: string;
+  assignedAgent: { id: string; name: string; email: string; role: UserRole } | null;
+  amount: number;
+  expectedClosingDate: string | null;
+  status: DealStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DealsResponse {
+  deals: Deal[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface CreateDealData {
+  title: string;
+  propertyId: string;
+  clientId: string;
+  assignedAgentId?: string | null;
+  amount: number;
+  expectedClosingDate?: string | null;
+  status?: DealStatus;
+  notes?: string;
+}
+
+export type UpdateDealData = Partial<CreateDealData>;

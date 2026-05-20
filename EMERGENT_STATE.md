@@ -45,9 +45,10 @@
 - [x] **Dashboard Analytics & Reporting module (Phase 4.0)** — see Phase 4.0 below
 - [x] **Properties module (Phase 8.0)** — see Phase 8.0 below
 - [x] **Clients module (Phase 9.0)** — see Phase 9.0 below
+- [x] **Deals module Phase-1 (Phase 10.0)** — see Phase 10.0 below
 
 ### Pending Features
-- [ ] Deals module
+- [ ] Deals Phase-2 (Kanban, timeline)
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
@@ -384,6 +385,48 @@
     - `/clients` lists the card with avatar "V", name, location chip, ₹85.00 L, phone, email, "Admin" owner badge. Grid/List toggle, "Add Client" CTA, search input + agent filter + link-state filter visible.
     - `/clients/:id` shows back button, Message/Edit/Delete actions, profile card with budget headline, 6-field grid (phone, email, budget, agent, linked lead "Not linked", created), notes block, and the Activity timeline rendering the single CREATED event "Client \"Vivek Kumar\" created · by Admin" with timestamp + source pill.
     - "Add New Client" modal renders every field including the searchable linked-lead picker and admin-only Assigned Agent dropdown.
+
+**Phase 10.0: Deals Module — Phase-1 (List, Filters, CRUD; no Kanban / no timeline yet)** — COMPLETE (2026-05-20)
+  - **Scope**: Real `Deal` model on Neon Postgres + full CRUD + search + filter by status & assigned agent. Frontend = single `/deals` page with grid/list toggle and inline-action cards. Phase-1 explicitly excludes Kanban and the per-deal timeline (deferred to Phase 10.5/11.0).
+  - **Zero changes** to auth, leads, follow-ups, communications, WhatsApp, analytics, CSV, users, pipeline, properties, clients, DB config, or architecture. Purely additive — one new table, one router, one page.
+  - **New Prisma migration**: `20260520071120_add_deal_model` adds:
+    - Model `Deal` (id, title, propertyId FK → Property `onDelete: Restrict`, clientId FK → Client `onDelete: Restrict`, assignedAgentId FK → User REQUIRED, amount `Decimal(15,2)`, expectedClosingDate `DateTime?`, status `DealStatus @default(NEW)`, notes `Text?`, createdAt, updatedAt). Indexed on `(status, createdAt)`, `(assignedAgentId)`, `(propertyId)`, `(clientId)`.
+    - Enum `DealStatus`: `NEW | NEGOTIATION | DOCUMENTATION | PAYMENT_PENDING | WON | LOST`.
+    - `Restrict` on Property + Client FKs is deliberate: deleting a property/client that has a live deal must fail loudly rather than silently zombify the deal. Force the user to close out / delete the deal first.
+    - Back-relations `User.deals`, `Property.deals`, `Client.deals`.
+  - **Backend API surface** (all JWT-protected, `/api/deals/*`):
+    - `GET    /api/deals`           list + pagination + search (title / notes / property.title / property.city / client.fullName / client.phone) + filter by `status` + filter by `assignedAgentId` + sortBy/sortOrder. Result `{deals, total, page, limit, pages}` with each deal embedding its `property` (id/title/city/location/price/images/status), `client` (id/fullName/phone/email), and `assignedAgent` (id/name/email/role). RBAC scope: AGENT auto-restricted to own; ADMIN unrestricted.
+    - `POST   /api/deals`           create. Required: `title, propertyId, clientId, amount > 0`. AGENT auto-owns; ADMIN may pick `assignedAgentId` or leave omitted (defaults to admin's id — the schema requires the column to be non-null since every deal must have someone responsible for it). Foreign-key violations return `400 "Invalid property, client or agent reference"`.
+    - `GET    /api/deals/:id`       fetch one. AGENT 403 on a deal they don't own.
+    - `PUT    /api/deals/:id`       partial update. ADMIN any; AGENT only own; AGENT cannot change `assignedAgentId` via PUT (only an admin can reassign, mirroring the Lead/Client pattern).
+    - `DELETE /api/deals/:id`       ADMIN any; AGENT only own. 204.
+  - **Files added (backend)**:
+    - `services/deal.service.ts` — `buildDealScope`, `listDeals`, `getDealById`, `createDeal`, `updateDeal`, `deleteDeal`. `toDto` converts both the deal's `amount` and the embedded `property.price` Decimals → numbers.
+    - `controllers/deal.controller.ts` — full RBAC + `validateRequired` + explicit P2003/P2025 mapping to clean 400/404 errors.
+    - `routes/deal.routes.ts` — wires the 5 endpoints. No `/assign` endpoint in Phase-1: ADMIN reassigns via the regular PUT body. (Easy to add `PATCH /:id/assign` later if needed.)
+    - `index.ts` — adds `app.use('/api/deals', dealRouter)`.
+  - **Frontend route + page**:
+    - `/deals` — `DealsPage` (no detail page in Phase-1 per spec). Header w/ Grid/List toggle (persisted in `localStorage.deals:view`), Add Deal button. Filter bar w/ search (debounced 400 ms), status select (NEW/NEGOTIATION/DOCUMENTATION/PAYMENT_PENDING/WON/LOST), admin-only Agent filter, Clear button when dirty.
+    - Grid mode renders `DealCard`s in a 1 → 2 → 3-col responsive grid: cover image (the property's first Cloudinary thumb at `w_480,c_fill`), `DealStatusBadge` overlay, title, big ₹ amount, client + property + closing-date lines, agent name + inline Edit/Trash buttons (RBAC-gated to ADMIN or the owning AGENT).
+    - List mode renders `DealListRow`s — denser, same data, no cover image.
+    - Skeleton, empty, and "no filter match" empty states. Pagination at the bottom when `pages > 1`.
+  - **Components added (`/app/frontend/src/components/deals/`)**:
+    - `DealStatusBadge.tsx` — 6-colour status chip (sky / amber / violet / orange / emerald / rose) with optional dot.
+    - `DealCard.tsx` — grid card with cover image + amount headline + client/property/closing lines + inline Edit/Delete (RBAC-gated via `useAuth`). Reuses `buildCloudinaryUrl` from the Properties module.
+    - `DealListRow.tsx` — dense single-line variant with the same data.
+    - `DealFormModal.tsx` — create/edit dialog. Searchable client picker (debounced → `clientsApi.list`), searchable property picker (debounced → `propertiesApi.list`), amount, status, expectedClosingDate (HTML `<input type=date>`, value reduced to `YYYY-MM-DD`), admin-only `assignedAgentId` select (defaults to "Defaults to me"), notes. Inline validation surfaces clean error text via `extractApiError`.
+  - **Types added** (`frontend/src/types/index.ts`): `DealStatus`, `Deal`, `DealsResponse`, `CreateDealData`, `UpdateDealData`.
+  - **Frontend service** (`services/deals.ts`): `dealsApi.list/get/create/update/delete`.
+  - **App routing** (`App.tsx`): added `/deals` under the protected `MainLayout`. The "Deals" sidebar nav entry was already in `nav-items.ts` from Phase 6.0, so no nav change was needed.
+  - **Files NOT touched**: backend auth/leads/follow-ups/communications/whatsapp/analytics/csv/users/pipeline/properties/clients files (any); MainLayout, Navbar, Sidebar, MobileSidebar, nav-items; existing services for leads, communications, whatsapp, properties, clients, analytics. Only existing files modified: `prisma/schema.prisma` (1-line back-relation each on `User`, `Property`, `Client`, plus the new `Deal` model and `DealStatus` enum), `backend/src/index.ts` (2 lines to wire the router), `frontend/src/types/index.ts` (additive types), `frontend/src/App.tsx` (1 route line).
+  - **Live smoke test** (admin token, localhost):
+    ```
+    POST /api/deals  {title:"Vivek - Bandra 3BHK", propertyId, clientId, amount:35000000, expectedClosingDate:"2026-08-15", status:"NEGOTIATION", notes:"…"} → 201 with embedded property + client + assignedAgent (admin auto-owned)
+    GET  /api/deals  → 1 deal
+    ```
+  - **UI verified** via screenshots at 1440x900 (light theme):
+    - `/deals` lists the deal card showing property cover image, "Negotiation" status pill, title "Vivek - Bandra 3BHK", ₹3.50 Cr amount, client name + phone, property + city, "Closing 15 Aug 2026", agent "Admin", and the inline Edit + Trash icon buttons.
+    - "Add New Deal" modal renders every field — Title, searchable Client picker, searchable Property picker, Amount, Status (default New), Expected Closing Date, admin-only Assigned Agent (Defaults to me), Notes.
 
 ---
 
