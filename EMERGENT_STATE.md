@@ -428,6 +428,28 @@
     - `/deals` lists the deal card showing property cover image, "Negotiation" status pill, title "Vivek - Bandra 3BHK", ₹3.50 Cr amount, client name + phone, property + city, "Closing 15 Aug 2026", agent "Admin", and the inline Edit + Trash icon buttons.
     - "Add New Deal" modal renders every field — Title, searchable Client picker, searchable Property picker, Amount, Status (default New), Expected Closing Date, admin-only Assigned Agent (Defaults to me), Notes.
 
+**Phase 10.0 Verification — COMPLETE & VERIFIED (2026-05-20, iteration_15.json)**
+  - **Resumed from prior session** that expired during report generation. Backend tests (24/24 pytest) and AGENT RBAC for Deals (no agent filter visible, no Assigned Agent select in modal, no admin-owned deals visible to agent, empty state rendered correctly) were already confirmed in iteration_14 and were not re-run.
+  - **Environment restore performed this session** (container was reset): `yarn install` in `/app/backend`, `npx prisma generate`, `npx prisma migrate deploy` (9 migrations — no pending), supervisor program `node_backend` recreated at `/etc/supervisor/conf.d/supervisord_node_backend.conf` (port 8002). `/api/health` returns 200 via both 8002 direct and the FastAPI proxy on 8001. Admin login returns a valid JWT.
+  - **Frontend verification (ADMIN side, Deals Phase-1)** — 100% PASS:
+    - `/deals` mounts with every documented testid: `deals-page`, `add-deal-button`, `deals-search-input`, `deals-status-filter`, `deals-agent-filter` (admin-only filter visible), `deals-view-toggle`, `deals-grid`.
+    - Add Deal modal renders all 9 fields including the ADMIN-only `deal-agent-select`; inline validation "Title is required" fires via `[data-testid=deal-form-error]` on empty submit.
+    - Status filter exposes all 6 statuses (New, Negotiation, Documentation, Payment Pending, Won, Lost) + "All status".
+    - Grid/list view toggle persists `localStorage.deals:view`.
+  - **Regression smoke (100% PASS)** across:
+    - **Leads** — `/leads` mounts, search/filters render, Import (admin-only) + Export buttons visible.
+    - **Clients** — `/clients` mounts, `clients-agent-filter` (admin-only) + `add-client-button` visible.
+    - **Properties** — `/properties` mounts, grid/list toggle + `add-property-button` visible.
+    - **Follow-ups** — `/followups` mounts, `add-followup-button` visible.
+    - **Communications** — `/communications` mounts with inbox sidebar (3 conversations), `chat-panel` composer, 5 quick-reply chips, "Use template" + "Log a call" buttons.
+    - **Analytics / Dashboard** — `/dashboard` renders 109 data-testids with live data: `date-range-filter` (today/7d/30d/custom), 4 communication stat cards, lead-funnel chart, leads-by-status chart, leads-by-source chart, follow-up completion donut (50%), agent-performance-grid (7 agent cards). Totals: 9 leads, 11.11% conversion.
+    - **Mobile responsive nav (390×844)** — `mobile-menu-button` hamburger visible on dashboard. Desktop sidebar at 1440px shows all nav entries including `nav-deals`.
+  - **Non-blocking observations** (NOT fixed — outside scope of "no impl changes unless blocking"):
+    - `export-analytics-button` currently renders as a single button rather than a 6-option dropdown described in Phase 5.0. Page renders cleanly; CSV export endpoints exist server-side (`/api/analytics/export/*`).
+    - Frontend issues silent 404s on stale analytics route names (`/agent-performance`, `/followup-completion`, `/communication-stats`, `/lead-funnel`, `/agent-stats`, `/export`). Page degrades gracefully because charts consume working endpoints (`/overview`, `/leads-by-status`, `/leads-by-source`, `/agents`).
+  - **Files modified this session**: none (no implementation files touched; this state-file update only).
+  - **Phase 10.0 final status: COMPLETE.** No further work required.
+
 ---
 
 ## Database
