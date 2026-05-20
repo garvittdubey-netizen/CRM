@@ -17,6 +17,8 @@ import PropertyDetailPage from '@/pages/PropertyDetailPage';
 import ClientsPage from '@/pages/ClientsPage';
 import ClientDetailPage from '@/pages/ClientDetailPage';
 import DealsPage from '@/pages/DealsPage';
+import DealBoardPage from '@/pages/DealBoardPage';
+import DealDetailPage from '@/pages/DealDetailPage';
 
 export default function App() {
   return (
@@ -42,6 +44,8 @@ export default function App() {
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/clients/:id" element={<ClientDetailPage />} />
             <Route path="/deals" element={<DealsPage />} />
+            <Route path="/deals/board" element={<DealBoardPage />} />
+            <Route path="/deals/:id" element={<DealDetailPage />} />
           </Route>
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>

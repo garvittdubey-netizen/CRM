@@ -1,4 +1,5 @@
 import { Building2, UserCircle, CalendarDays, Pencil, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DealStatusBadge } from './DealStatusBadge';
@@ -34,14 +35,24 @@ interface Props {
  */
 export function DealCard({ deal, onEdit, onDelete }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = user?.role === 'ADMIN';
   const canManage = isAdmin || deal.assignedAgentId === user?.id;
 
   const cover = deal.property?.images?.[0];
 
+  // Buttons inside the card stop bubbling here — we just ignore clicks that
+  // originated on any nested <button>. Keeps DealsPage's inline Edit/Delete
+  // working without rewriting their handlers.
+  const handleCardClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    navigate(`/deals/${deal.id}`);
+  };
+
   return (
     <Card
-      className="overflow-hidden transition-all hover:shadow-md hover:border-primary/40"
+      onClick={handleCardClick}
+      className="overflow-hidden transition-all hover:shadow-md hover:border-primary/40 cursor-pointer"
       data-testid={`deal-card-${deal.id}`}
     >
       {/* Cover strip (property photo) */}

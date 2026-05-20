@@ -1,5 +1,70 @@
 import { Request, Response } from 'express';
 import * as dealService from '../services/deal.service';
+import { buildDealTimeline } from '../services/deal-timeline.service';
+
+/** Indian-format short money string used inside activity descriptions. */
+function formatAmount(value: number | null | undefined): string {
+  if (value == null) return '—';
+  if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)} Cr`;
+  if (value >= 100000) return `₹${(value / 100000).toFixed(2)} L`;
+  return `₹${value.toLocaleString('en-IN')}`;
+}
+
+interface LifecycleEvent {
+  eventType: string;
+  notes: string;
+}
+
+/**
+ * Diff the deal before/after an update and emit one event per meaningful
+ * field change. We deliberately do NOT emit anything for cosmetic edits
+ * (title, closingDate, propertyId, clientId) so the timeline stays focused
+ * on the events the user asked for in the spec:
+ *   STATUS_CHANGED, AMOUNT_UPDATED, AGENT_REASSIGNED, NOTES_UPDATED
+ */
+function collectLifecycleEvents(
+  before: any,
+  after: any,
+  body: Record<string, unknown>,
+): LifecycleEvent[] {
+  const events: LifecycleEvent[] = [];
+
+  if (body.status !== undefined && before.status !== after.status) {
+    events.push({
+      eventType: 'STATUS_CHANGED',
+      notes: `Status changed from ${before.status} to ${after.status}`,
+    });
+  }
+
+  // Amount diff — both values come back as numbers via the service's toDto.
+  if (
+    body.amount !== undefined &&
+    Number(before.amount) !== Number(after.amount)
+  ) {
+    events.push({
+      eventType: 'AMOUNT_UPDATED',
+      notes: `Amount updated from ${formatAmount(Number(before.amount))} to ${formatAmount(Number(after.amount))}`,
+    });
+  }
+
+  if (
+    body.assignedAgentId !== undefined &&
+    before.assignedAgentId !== after.assignedAgentId
+  ) {
+    const fromName = before.assignedAgent?.name ?? 'Unassigned';
+    const toName = after.assignedAgent?.name ?? 'Unassigned';
+    events.push({
+      eventType: 'AGENT_REASSIGNED',
+      notes: `Reassigned from ${fromName} to ${toName}`,
+    });
+  }
+
+  if (body.notes !== undefined && (before.notes ?? null) !== (after.notes ?? null)) {
+    events.push({ eventType: 'NOTES_UPDATED', notes: 'Notes updated' });
+  }
+
+  return events;
+}
 
 function validateRequired(body: Record<string, unknown>): string | null {
   const required: Array<[string, string]> = [
@@ -76,6 +141,15 @@ export async function addDeal(req: Request, res: Response): Promise<void> {
       ...req.body,
       assignedAgentId,
     });
+
+    // Lifecycle log — fire-and-forget; never blocks the response.
+    await dealService.logDealActivity({
+      dealId: deal.id,
+      userId: req.user!.id,
+      eventType: 'CREATED',
+      notes: `Deal "${deal.title}" created with status ${deal.status} for ${formatAmount(deal.amount)}`,
+    });
+
     res.status(201).json(deal);
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };
@@ -113,6 +187,20 @@ export async function editDeal(req: Request, res: Response): Promise<void> {
     }
 
     const deal = await dealService.updateDeal(req.params.id, req.body);
+
+    // Auto-log lifecycle deltas. We diff field-by-field against the pre-update
+    // snapshot so a single PUT can emit multiple semantically distinct events
+    // (e.g. an admin re-assigning AND changing status in one call). Each
+    // event has a stable `eventType` and a human-readable `notes` string.
+    const lifecycleEvents = collectLifecycleEvents(existing, deal, req.body);
+    for (const ev of lifecycleEvents) {
+      await dealService.logDealActivity({
+        dealId: deal.id,
+        userId: req.user!.id,
+        ...ev,
+      });
+    }
+
     res.json(deal);
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };
@@ -149,4 +237,41 @@ export async function removeDeal(req: Request, res: Response): Promise<void> {
     }
     res.status(500).json({ error: 'Failed to delete deal' });
   }
+}
+
+
+/**
+ * GET /api/deals/:id/timeline
+ *
+ * Read-only timeline for the Deal detail page. RBAC mirrors `getOneDeal`:
+ * ADMIN sees any deal's timeline, AGENT only their own.
+ */
+export async function getDealTimelineHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const deal = await dealService.getDealById(req.params.id);
+    if (!deal) {
+      res.status(404).json({ error: 'Deal not found' });
+      return;
+    }
+    if (req.user!.role !== 'ADMIN' && deal.assignedAgentId !== req.user!.id) {
+      res.status(403).json({ error: 'You do not have access to this deal' });
+      return;
+    }
+    const items = await buildDealTimeline(req.params.id);
+    res.json({ items });
+  } catch (e) {
+    console.error('getDealTimeline:', e);
+    res.status(500).json({ error: 'Failed to load timeline' });
+  }
+}
+
+/**
+ * GET /api/deals/:id/activities
+ *
+ * Alias of /timeline that the spec calls out separately. We serve the same
+ * payload so the frontend can pick whichever name it likes — both are
+ * RBAC-scoped identically.
+ */
+export async function getDealActivitiesHandler(req: Request, res: Response): Promise<void> {
+  return getDealTimelineHandler(req, res);
 }

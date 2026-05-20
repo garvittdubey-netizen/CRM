@@ -1,5 +1,11 @@
 import api from './api';
-import type { Deal, DealsResponse, CreateDealData, UpdateDealData } from '@/types';
+import type {
+  Deal,
+  DealsResponse,
+  CreateDealData,
+  UpdateDealData,
+  DealTimelineItem,
+} from '@/types';
 
 export interface DealListParams {
   page?: number;
@@ -23,4 +29,14 @@ export const dealsApi = {
     api.put<Deal>(`/api/deals/${id}`, data).then((r) => r.data),
 
   delete: (id: string) => api.delete(`/api/deals/${id}`),
+
+  timeline: (id: string) =>
+    api
+      .get<{ items: DealTimelineItem[] }>(`/api/deals/${id}/timeline`)
+      .then((r) => r.data.items),
+
+  activities: (id: string) =>
+    api
+      .get<{ items: DealTimelineItem[] }>(`/api/deals/${id}/activities`)
+      .then((r) => r.data.items),
 };

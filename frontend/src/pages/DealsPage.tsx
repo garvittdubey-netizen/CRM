@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -7,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   TrendingUp,
+  Kanban,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +47,7 @@ const STATUS_OPTIONS: Array<{ value: 'ALL' | DealStatus; label: string }> = [
 export default function DealsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'ALL' | DealStatus>('ALL');
@@ -154,6 +157,13 @@ export default function DealsPage() {
               <List size={13} /> List
             </button>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate('/deals/board')}
+            data-testid="open-deal-board-button"
+          >
+            <Kanban size={16} className="mr-1.5" /> Board
+          </Button>
           <Button onClick={openCreate} data-testid="add-deal-button">
             <Plus size={16} className="mr-1.5" /> Add Deal
           </Button>

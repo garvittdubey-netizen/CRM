@@ -183,3 +183,28 @@ export async function updateDeal(id: string, input: Partial<DealInput>) {
 export async function deleteDeal(id: string): Promise<void> {
   await prisma.deal.delete({ where: { id } });
 }
+
+/**
+ * Records a single lifecycle event for a deal. Failures are swallowed so the
+ * parent write (create/update/delete) is never rolled back by an activity-log
+ * glitch. Mirrors `logClientActivity` from the Client module.
+ */
+export async function logDealActivity(input: {
+  dealId: string;
+  userId: string | null;
+  eventType: string;
+  notes?: string | null;
+}): Promise<void> {
+  try {
+    await prisma.dealActivity.create({
+      data: {
+        dealId: input.dealId,
+        userId: input.userId,
+        eventType: input.eventType,
+        notes: input.notes ?? null,
+      },
+    });
+  } catch (e) {
+    console.warn('[deal.activity]', e);
+  }
+}

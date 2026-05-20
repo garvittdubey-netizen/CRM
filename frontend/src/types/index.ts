@@ -480,3 +480,20 @@ export interface CreateDealData {
 }
 
 export type UpdateDealData = Partial<CreateDealData>;
+
+// Deal timeline — read-only lifecycle events sourced from `deal_activities`.
+export type DealEventType =
+  | 'CREATED'
+  | 'STATUS_CHANGED'
+  | 'AMOUNT_UPDATED'
+  | 'AGENT_REASSIGNED'
+  | 'NOTES_UPDATED';
+
+export interface DealTimelineItem {
+  id: string;
+  source: 'DEAL';
+  eventType: DealEventType | string;
+  notes: string | null;
+  createdAt: string;
+  actor: { id: string; name: string } | null;
+}

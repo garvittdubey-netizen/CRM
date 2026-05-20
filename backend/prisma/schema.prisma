@@ -24,6 +24,7 @@ model User {
   clients         Client[]        @relation("ClientAssignedAgent")
   clientActivities ClientActivity[] @relation("ClientActivityActor")
   deals           Deal[]          @relation("DealAssignedAgent")
+  dealActivities  DealActivity[]  @relation("DealActivityActor")
 
   @@map("users")
 }
@@ -248,6 +249,7 @@ model Deal {
   expectedClosingDate DateTime?
   status              DealStatus @default(NEW)
   notes               String?    @db.Text
+  activities          DealActivity[] @relation("DealToActivities")
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
@@ -256,6 +258,26 @@ model Deal {
   @@index([propertyId])
   @@index([clientId])
   @@map("deals")
+}
+
+/// Auto-logged lifecycle events for the Deals module.
+///   eventType: CREATED | STATUS_CHANGED | AMOUNT_UPDATED |
+///              AGENT_REASSIGNED | NOTES_UPDATED
+/// `notes` carries the human-readable description (e.g. "Status changed from
+/// NEW to NEGOTIATION"). `userId` is the acting user, kept optional so a
+/// deleted/system actor doesn't break the timeline.
+model DealActivity {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation("DealToActivities", fields: [dealId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation("DealActivityActor", fields: [userId], references: [id])
+  eventType String
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([dealId, createdAt])
+  @@map("deal_activities")
 }
 
 enum DealStatus {

@@ -1,4 +1,5 @@
 import { Building2, UserCircle, CalendarDays, Pencil, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DealStatusBadge } from './DealStatusBadge';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,12 +26,23 @@ interface Props {
 /** Dense list-row variant of the deal card. */
 export function DealListRow({ deal, onEdit, onDelete }: Props) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = user?.role === 'ADMIN';
   const canManage = isAdmin || deal.assignedAgentId === user?.id;
 
+  // Clicking anywhere except an action button opens the detail page. We
+  // detect a bubbled-up click from a button via `closest('button')` so the
+  // inline Edit / Delete continue to work without `stopPropagation` on every
+  // onClick handler.
+  const handleRowClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    navigate(`/deals/${deal.id}`);
+  };
+
   return (
     <div
-      className="flex items-center gap-4 p-3 border-b last:border-0 hover:bg-muted/40 transition-colors"
+      onClick={handleRowClick}
+      className="flex items-center gap-4 p-3 border-b last:border-0 hover:bg-muted/40 transition-colors cursor-pointer"
       data-testid={`deal-row-${deal.id}`}
     >
       <div className="min-w-0 flex-1">

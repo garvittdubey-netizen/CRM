@@ -450,6 +450,47 @@
   - **Files modified this session**: none (no implementation files touched; this state-file update only).
   - **Phase 10.0 final status: COMPLETE.** No further work required.
 
+**Phase 10.1: Deals Phase-2 — Kanban Board + Detail Page + Activity Timeline** — COMPLETE (2026-05-20)
+  - **Scope**: A new Kanban board for deals (`/deals/board`) backed by drag-and-drop with the same UX as the Lead Pipeline; a new Deal detail page (`/deals/:id`) with a property card, a client card, an assigned-agent block, status history and a full lifecycle activity timeline; and a backend `DealActivity` table that auto-logs every meaningful change to a deal.
+  - **Zero changes** to auth, leads, follow-ups, communications, WhatsApp, analytics, CSV import/export, users, pipeline, properties, clients, deal Phase-1 list page, database configuration, or architecture. Purely additive — one new table, one new backend service, one new controller endpoint pair, two new pages, three new components.
+  - **New Prisma migration**: `20260520080309_add_deal_activity_model` adds:
+    - Model `DealActivity` (id `cuid`, dealId FK → `Deal` `onDelete: Cascade`, userId FK → `User` (nullable so a deleted/system actor never breaks the timeline), eventType `String`, notes `String?` `@db.Text`, createdAt). Indexed on `(dealId, createdAt)` so the timeline query is a clean B-tree range scan.
+    - Back-relations `Deal.activities` (`@relation("DealToActivities")`) and `User.dealActivities` (`@relation("DealActivityActor")`).
+    - `eventType` values emitted by the backend: `CREATED | STATUS_CHANGED | AMOUNT_UPDATED | AGENT_REASSIGNED | NOTES_UPDATED`. `notes` carries the human-readable description (e.g. `"Status changed from NEW to NEGOTIATION"`, `"Amount updated from ₹50.00 L to ₹50.01 L"`).
+  - **Backend API surface** (all JWT-protected, mounted BEFORE `/:id` so route-segment ordering is correct):
+    - `GET /api/deals/:id/timeline`      RBAC-scoped read-only feed (ADMIN any deal, AGENT only own). Returns `{items: DealTimelineItem[]}` sorted newest-first, capped to 200. Each item: `{id, source:'DEAL', eventType, notes, createdAt, actor:{id,name}|null}`.
+    - `GET /api/deals/:id/activities`    alias of `/timeline` (the spec called them out separately). Same RBAC, same payload — serving once via a thin wrapper keeps the schema in lock-step.
+  - **Auto-logging** is wired into `deal.controller.ts`. Every write fires one or more lifecycle events through `dealService.logDealActivity` — failures are swallowed so the parent write is never rolled back by an activity-log glitch (matches the Client module pattern).
+    - `addDeal`   → emits `CREATED` with notes `Deal "<title>" created with status <STATUS> for ₹<amount>`.
+    - `editDeal`  → diffs the pre-update snapshot against the persisted row via `collectLifecycleEvents`. A single PUT can emit MULTIPLE distinct events when an admin changes status, amount, agent and notes in one call. Cosmetic-only edits (title / closing date / property / client) are intentionally NOT logged so the timeline stays focused on the events the user asked for.
+    - `removeDeal` is left clean — the parent `DealActivity` rows are cascade-deleted by the FK, so logging on delete would be a dangling event.
+  - **Files added (backend)**:
+    - `services/deal-timeline.service.ts` — `buildDealTimeline(dealId)`. Reads `deal_activities`, joins the acting user (`{id,name}`), formats ISO timestamps, returns the canonical `DealTimelineItem` shape.
+    - `controllers/deal.controller.ts` — added `formatAmount`, `collectLifecycleEvents`, `getDealTimelineHandler`, `getDealActivitiesHandler`; instrumented `addDeal` + `editDeal` with auto-logging.
+    - `services/deal.service.ts` — added `logDealActivity` helper (mirrors `logClientActivity`).
+    - `routes/deal.routes.ts` — wires the two new GET endpoints before `/:id`.
+  - **Frontend additions** (no nav-items change — Deals already had a sidebar entry, the Board is reachable via a Board button on `/deals`):
+    - Route `/deals/board` → `DealBoardPage` — Kanban with 6 columns (NEW, NEGOTIATION, DOCUMENTATION, PAYMENT_PENDING, WON, LOST), `@dnd-kit` drag-and-drop, optimistic update with rollback on failure, URL-backed `?search=&agent=` filters, drop-zone highlight via `useDroppable.isOver`, `DragOverlay` ghost. Visual / interaction parity with the Lead `PipelinePage`.
+    - Route `/deals/:id` → `DealDetailPage` — headline (title + status pill + amount), 3-up stat tiles (expected closing / assigned agent / created), notes block, full `DealTimeline`, right sidebar with `deal-property-card` (cover image + "Open property" deep-link), `deal-client-card` (phone/email + "Open client" deep-link), and `deal-meta-card` containing a "Recent status history" trail derived from STATUS_CHANGED + CREATED events.
+    - Components: `DealBoardCard.tsx`, `DealBoardColumn.tsx`, `DealTimeline.tsx`. Lead `LeadCard` / `PipelineColumn` were not reused directly because the deal card surface is meaningfully different (amount headline + property cover thumb + client name), but the drag/drop wiring is byte-for-byte the same.
+    - `DealCard.tsx` + `DealListRow.tsx` made clickable (the whole card navigates to `/deals/:id`, the inline Edit / Delete buttons keep working because we ignore clicks that bubbled from a `<button>`).
+    - "Board" button added to `DealsPage` header (`open-deal-board-button`) — single click switches view.
+    - `services/deals.ts` — added `timeline(id)` and `activities(id)` methods.
+    - Types: `DealEventType`, `DealTimelineItem` added to `frontend/src/types/index.ts`.
+    - `App.tsx` — registered `/deals/board` and `/deals/:id` under the protected layout.
+  - **Files NOT touched**: backend auth/leads/follow-ups/communications/whatsapp/analytics/csv/users/pipeline/properties/clients (any); MainLayout, Navbar, Sidebar, MobileSidebar, nav-items; existing services for leads/communications/whatsapp/properties/clients/analytics. The only existing files modified are `prisma/schema.prisma` (one back-relation on `User`, one on `Deal`, plus the new `DealActivity` model), `backend/src/services/deal.service.ts` (added one helper at the bottom), `backend/src/controllers/deal.controller.ts` (added auto-logging into existing create/update handlers + two new GET handlers + helpers), `backend/src/routes/deal.routes.ts` (added two GETs), `frontend/src/types/index.ts` (additive types), `frontend/src/services/deals.ts` (two new methods), `frontend/src/App.tsx` (two route lines), `frontend/src/pages/DealsPage.tsx` (Board button + useNavigate), `frontend/src/components/deals/DealCard.tsx` and `frontend/src/components/deals/DealListRow.tsx` (made clickable).
+  - **Live smoke test** (admin token):
+    ```
+    PUT  /api/deals/<id>  {amount: 5001000, status:"DOCUMENTATION", notes:"updated"}
+      → 200 (deal updated)
+    GET  /api/deals/<id>/timeline
+      → 3 events: STATUS_CHANGED (WON→DOCUMENTATION), AMOUNT_UPDATED (₹50.00 L → ₹50.01 L), NOTES_UPDATED — all with actor "Admin"
+    ```
+  - **UI verified** via screenshots at 1440x900 (light theme):
+    - `/deals/board` shows 6 Kanban columns with the correct accent colours, counts per column (`deal-board-count-NEW…LOST`), cards with grip handle + amount + client + property + agent avatar + closing date. Filters (search + admin-only Agent dropdown) render.
+    - `/deals/:id` shows the title "TEST", Documentation status pill, ₹50.01 L headline, expected closing / assigned agent / created stat tiles, Notes block, Activity timeline with 3 events ("Notes updated · by Admin", "Amount updated · Amount updated from ₹50.00 L to ₹50.01 L · by Admin", "Status changed · Status changed from WON to DOCUMENTATION · by Admin"), Property card with cover image + "Open property", Client card with phone + email + "Open client", and Deal info sidebar with a Recent status history list.
+  - **Phase 10.1 status: COMPLETE.**
+
 ---
 
 ## Database
