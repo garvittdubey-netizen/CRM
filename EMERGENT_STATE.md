@@ -52,6 +52,40 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 12.0: Property → WhatsApp sharing workflow** — COMPLETE (2026-05-20)
+  - **Scope**: A new "Share via WhatsApp" action on the Property detail page that lets agents broadcast a property card to one or many leads through the **existing** WhatsApp integration. Strictly additive — no new backend route, no new persistence path, no schema change.
+  - **Frontend additions (2 files)**:
+    - `components/properties/SharePropertyWhatsAppModal.tsx` — Radix Dialog with a 2-column body. Left column: mode toggle ("Matching leads" / "All leads") + recipient list with checkboxes + select-all-visible. Right column: live message preview (editable textarea, ~12-line monospaced) + selected-recipient chips + per-recipient send-status badges (sending / ok / failed with tooltip error).
+    - `pages/PropertyDetailPage.tsx` — adds one button ("Share via WhatsApp") to the existing header action group (visible to every role since the share itself is RBAC-checked downstream by the assertLeadAccess guard) and mounts the new modal at the page level.
+  - **Backend**: unchanged. The modal calls:
+    - `GET  /api/properties/:id/matching-leads`  — already existed (uses `MatchingLeadsSidebar` today).
+    - `GET  /api/leads?search=&limit=25`         — already existed (debounced 350 ms input).
+    - `POST /api/communications/whatsapp/send`  — already existed. ONE call per selected lead, sequential to respect Meta rate limits and to update UI rows as they complete. Each success creates a `Communication` row (direction=OUTBOUND, type=WHATSAPP, status=SENT) that immediately surfaces in the per-lead timeline (`/communications?leadId=…`) AND in the global inbox.
+  - **Message template** (built deterministically by `buildMessage(property)` and editable before send):
+    ```
+    🏠 *{title}*
+    📍 {location}, {city}
+    💰 {formatted price}
+    📐 {bedrooms} BHK · {area} {areaUnit} · {propertyType}
+
+    {description trimmed to 280 chars}
+
+    📷 {first image, cdn-optimised via buildCloudinaryUrl(..., {width:1000})}
+
+    🔗 View details: {window.location.origin}/properties/{id}
+    ```
+    Plain text only (the existing `whatsapp.service.ts` does NOT do media uploads); the image is sent as a URL so WhatsApp clients render the OpenGraph preview inline. The detail-link works because the property route is already mounted at `/properties/:id` from Phase 6.0.
+  - **Recipient handling**:
+    - Leads without a phone number are surfaced but disabled (matches existing WhatsApp UX everywhere else).
+    - "Matching leads" mode re-uses the same scoring (`preferredLocation`, `propertyType`, `budget`) the right-rail `MatchingLeadsSidebar` shows.
+    - "All leads" mode debounces 350 ms and respects the existing `/api/leads` RBAC (agents only see their own assigned leads — verified during impl).
+    - Selecting a recipient adds a `<Badge>` chip on the right column; chips are removable with × ; selected state survives switching between Matching/All tabs.
+    - Per-row status badge updates in real-time as each `await` resolves; failed rows show an `AlertCircle` with a `title` containing the upstream error message (e.g. Meta `Authentication Error` when the token is expired).
+  - **Test-ID surface** (for future automation):
+    - `share-via-whatsapp-button`, `share-property-modal`, `share-mode-toggle`, `share-mode-matching`, `share-mode-all`, `share-search-input`, `share-toggle-all`, `share-recipient-list`, `share-recipient-{leadId}`, `share-selected-chips`, `share-chip-{leadId}`, `share-message-textarea`, `share-send-button`, `share-cancel-button`, `share-status-{leadId}`, `share-result-summary`, `share-empty-list`.
+  - **Honest about Meta token**: at the time of this build the Meta access token in `/app/backend/.env` is expired (documented in Phase 3.0 + surfaced in the System Status panel from Phase 11.0). The end-to-end flow was verified — UI ✓, recipient picker ✓, message preview ✓, send button ✓, status badges ✓, result summary ✓ — and the upstream failure is correctly surfaced as a red badge + "1 failed" summary. The send path itself correctly does NOT create a Communication row when Meta rejects, so no fake sends pollute history. Once the token is rotated in `/app/backend/.env` (or via the Phase 3.0 admin uploader if one ever lands), every selected lead will receive the message and the corresponding `Communication` row will appear in the per-lead timeline and inbox automatically — that path is the existing tested one in `communication.service.ts:sendWhatsApp`, which is what this modal calls verbatim.
+  - **Files NOT touched**: every backend file (no new route, no new service, no new controller, no Prisma change), every other frontend page, every other Property module component, every Communication module component, `services/communications.ts`, `services/leads.ts`, `services/properties.ts` (all only **consumed**). RBAC is unchanged — `assertLeadAccess` in the backend still enforces "agents only send on leads assigned to them", so the modal's "All leads" tab inherits the right behaviour without any duplicate guard at the UI.
+
 **Phase 11.1: Navbar avatar + dropdown action fixes** — COMPLETE (2026-05-20)
   - **Scope**: Three frontend-only bug fixes around the navbar user menu — purely additive/corrective, no backend touched, no architecture changes.
   - **Bugs fixed**:

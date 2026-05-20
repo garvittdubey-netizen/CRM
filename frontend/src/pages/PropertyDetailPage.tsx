@@ -10,6 +10,7 @@ import {
   Maximize2,
   CalendarDays,
   UserCircle,
+  Send,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { PropertyStatusBadge } from '@/components/properties/PropertyStatusBadge
 import { PropertyImageGallery } from '@/components/properties/PropertyImageGallery';
 import { PropertyFormModal } from '@/components/properties/PropertyFormModal';
 import { MatchingLeadsSidebar } from '@/components/properties/MatchingLeadsSidebar';
+import { SharePropertyWhatsAppModal } from '@/components/properties/SharePropertyWhatsAppModal';
 import { propertiesApi } from '@/services/properties';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,6 +36,7 @@ export default function PropertyDetailPage() {
   const [matchingLoading, setMatchingLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [error, setError] = useState('');
 
   const isAdmin = user?.role === 'ADMIN';
@@ -110,27 +113,38 @@ export default function PropertyDetailPage() {
         >
           <ArrowLeft size={14} className="mr-1.5" /> Back
         </Button>
-        {canManage && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditOpen(true)}
-              data-testid="edit-property-button"
-            >
-              <Pencil size={13} className="mr-1.5" /> Edit
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDelete}
-              className="text-destructive hover:text-destructive"
-              data-testid="delete-property-button"
-            >
-              <Trash2 size={13} className="mr-1.5" /> Delete
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShareOpen(true)}
+            className="text-emerald-700 hover:text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+            data-testid="share-via-whatsapp-button"
+          >
+            <Send size={13} className="mr-1.5" /> Share via WhatsApp
+          </Button>
+          {canManage && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditOpen(true)}
+                data-testid="edit-property-button"
+              >
+                <Pencil size={13} className="mr-1.5" /> Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDelete}
+                className="text-destructive hover:text-destructive"
+                data-testid="delete-property-button"
+              >
+                <Trash2 size={13} className="mr-1.5" /> Delete
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Two-column body */}
@@ -249,6 +263,11 @@ export default function PropertyDetailPage() {
           fetchMatchingLeads();
           setEditOpen(false);
         }}
+      />
+      <SharePropertyWhatsAppModal
+        open={shareOpen}
+        property={property}
+        onClose={() => setShareOpen(false)}
       />
     </div>
   );
