@@ -1,0 +1,39 @@
+{
+  "summary": "Phase 10.2 — Reports + Notifications tested end-to-end. Backend: 36/36 pytest cases passing in /app/backend/tests/test_reports.py covering all 10 /api/reports/* endpoints (admin-200, agent-403), JSON shape validation (Lead/Property/Client/Deal/Agent), date-range subset behavior on /leads & /deals, CSV exports (text/csv;charset=utf-8 + UTF-8 BOM + Content-Disposition attachment, parseable rows), and /api/notifications (shape, kind enum, sort order newest-first, RBAC scoping, JWT required). Regression: 8/8 prior module smoke tests still 200. Frontend: ReportsPage renders all 5 sections with stable section-level testids; CSV blob download works; reports-print-button correctly triggers window.print() (verified via stub); date filter Apply+Clear refetches and resets; ProtectedRoute correctly blocks agents from /reports (agent navigated and reports-page testid never mounts, only 403 console errors). Notifications panel: bell visible, badge shows 9 unread, panel opens with 9 items, summary text formatting correct ('9 recent · 9 unread'), Mark-read updates to '9 recent · 0 unread' and hides both badge and Mark-read button, clicking an item navigates to /deals/{id} and closes the dropdown.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ReportsPage", "issues": ["Recharts emits 'width(-1) and height(-1)' console warnings during initial mount because ChartContainer renders inside a hidden/collapsed section before measurement. Functional impact: none (charts render correctly once visible), but the warning noise should be silenced by setting a minHeight or rendering charts only after data + layout settle."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_reports.py",
+    "/app/test_reports/pytest/reports_results.xml"
+  ],
+  "action_items": [
+    "(Optional polish) Suppress Recharts 'width(-1)/height(-1)' warnings by guarding ChartContainer with a non-zero minHeight or by deferring chart render until after first paint.",
+    "(Optional) Consider exposing the 5 report-section stat-card testids during the skeleton/loading state too, so e2e tests don't depend on completion of 5 parallel network calls before they can assert presence."
+  ],
+  "critical_code_review_comments": [
+    "report.service.ts uses date_trunc with createdAt to bucket revenueTrend — this means deals created in month X but WON in a later month land in month X's bucket. Acceptable for v1 because the schema has no 'wonAt' timestamp, but worth flagging.",
+    "notification.service.ts builds 3 independent Prisma queries and merges in memory — fine for the 5×3 cap but if PER_KIND_LIMIT grows this becomes a hot path; consider pushing the merge to SQL with UNION ALL later.",
+    "report.controller.ts parseRange() silently drops malformed date strings instead of returning 400. Low risk (Date('foo') is NaN-handled) but UX could be improved.",
+    "ReportsPage.tsx fetchAll uses Promise.all — a single failing endpoint nukes all 5 sections. Consider Promise.allSettled so partial failures still render the rest.",
+    "NotificationPanel.tsx unread counting depends solely on item[0].createdAt as the new lastRead marker; if items[0] has identical createdAt to other items, the strict-greater comparison may still mark them unread on next render. Edge case only."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_reports.py (NEW — 36 cases)"
+  ],
+  "success_rate": {"backend": "100% (36/36 reports + 8/8 regression)", "frontend": "100% on functional checks (CSV download, print, date filter, mark-read, agent block, item navigation)"},
+  "test_credentials": "Admin: admin@realestate.com / Admin@2036  |  Agent: agent@realestate.com / Agent@2036",
+  "seed_data_creation": "None — relied on the pre-seeded Neon DB described in the request (9 leads, 3 properties all AVAILABLE, 3 clients (1 linked + 2 unlinked), 2 deals incl. 1 WON in current month, 7 agents).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_reports.py is the authoritative regression for /api/reports/* and /api/notifications. Reports page lives at /reports (ADMIN). Mark-as-read is purely frontend via localStorage key notif:lastRead:{userId}. Print/PDF is window.print(); stub it before clicking [data-testid=reports-print-button]. The notifications dropdown is a Radix DropdownMenu portal — query via [data-testid=notifications-panel] which is on the menu content node. NOTE FOR PLAYWRIGHT: when validating per-section stat-card testids (e.g. report-leads-total) wait ~3–4s after navigating to /reports for the 5 parallel report queries to resolve; otherwise the section root is visible but its children are still in the Skeleton state.",
+  "rca of the issue": "No bugs found. The only deviation from expectations during the Playwright run was the inner section testids (report-leads-total, report-deals-status-row-WON, report-agents-table, etc.) reporting visible=false on the first pass — this is a TEST-TIMING artifact, not a functional bug. The page conditionally renders <StatCard> children only once `loading=false && report!=null`, and at 2s after navigation not all 5 endpoints had resolved. Confirmed by the fact that the very next interactions on the same page (CSV download, print, date-range Apply/Clear) all succeeded, which require the same data path."
+}

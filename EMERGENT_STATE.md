@@ -491,6 +491,72 @@
     - `/deals/:id` shows the title "TEST", Documentation status pill, ₹50.01 L headline, expected closing / assigned agent / created stat tiles, Notes block, Activity timeline with 3 events ("Notes updated · by Admin", "Amount updated · Amount updated from ₹50.00 L to ₹50.01 L · by Admin", "Status changed · Status changed from WON to DOCUMENTATION · by Admin"), Property card with cover image + "Open property", Client card with phone + email + "Open client", and Deal info sidebar with a Recent status history list.
   - **Phase 10.1 status: COMPLETE.**
 
+**Phase 11.0: Reports Module (ADMIN-only) + Lightweight Notifications** — COMPLETE (2026-05-20)
+  - **Scope**: Tenant-wide ADMIN-only Reports page at `/reports` covering five sections (Leads / Properties / Clients / Deals / Agents) backed by a new `/api/reports/*` router, plus a lightweight notifications system replacing the previously-decorative navbar bell. Both ship in this phase because they share data sources and the same "no new tables / no jobs / no microservices" constraint.
+  - **Zero changes** to auth, leads, follow-ups, communications, WhatsApp, analytics, CSV import/export, users, pipeline, properties, clients, deals (Phase-1 + 2), database configuration, or architecture. Purely additive — three new backend route files, two new services, two new controllers, one new admin page, one navbar dropdown component.
+  - **No new DB tables / no migrations / no new dependencies.** Notifications and reports both read existing tables (`follow_ups`, `deal_activities`, `leads`, `properties`, `clients`, `deals`, `users`).
+
+  ### Backend — Reports
+  - `services/report.service.ts` — five public functions:
+    - `getLeadReport(range?)`     → `{total, byStatus, bySource, won, conversionRate}` using `prisma.lead.count` + two `groupBy` calls.
+    - `getPropertyReport()`        → `{total, byStatus, available, sold}` (snapshot, no range).
+    - `getClientReport()`          → `{total, linked, unlinked}` (snapshot).
+    - `getDealReport(range?)`      → `{total, byStatus[{status,count,value}], totalValue, wonCount, lostCount, revenueTrend[]}`. Revenue trend is a 12-month `date_trunc('month', "createdAt")` raw query on WON deals — cheap (one B-tree scan) and avoids loading the deal set into memory.
+    - `getAgentReport()`           → one row per active agent merging deal counts (assigned + won) + lead counts (assigned + won) + follow-up counts (done + total) into a single rollup. Three independent `groupBy` queries + one in-memory join keyed by `agentId`.
+  - `controllers/report.controller.ts` — one JSON handler + one CSV handler per section. Shared `parseRange(req)` reads `?from=` / `?to=` ISO dates and snaps them to local-day boundaries. `sendCsv` mirrors the existing CSV pattern (UTF-8 BOM + `Content-Type text/csv` + `Content-Disposition attachment`).
+  - `routes/report.routes.ts` — mounts `authenticate + requireRole('ADMIN')` once at the router level so every handler is RBAC-safe by construction. Verified live: agent caller gets `HTTP 403 {"error":"Insufficient permissions"}` on every report endpoint.
+  - API surface:
+    - `GET /api/reports/leads`       + `GET /api/reports/leads/export`
+    - `GET /api/reports/properties`  + `GET /api/reports/properties/export`
+    - `GET /api/reports/clients`     + `GET /api/reports/clients/export`
+    - `GET /api/reports/deals`       + `GET /api/reports/deals/export`
+    - `GET /api/reports/agents`      + `GET /api/reports/agents/export`
+
+  ### Backend — Notifications
+  - `services/notification.service.ts` — single `buildNotifications(scope)` that aggregates from THREE existing tables in parallel: `prisma.followUp.findMany` (pending + due-today or earlier), `prisma.dealActivity.findMany` (last 5 for the caller's deals), `prisma.lead.findMany` (5 most recent leads assigned to the caller, or any assigned lead for ADMIN). RBAC inside the service — ADMIN sees everything tenant-wide, AGENT only their own scope. Returns a flat `NotificationItem[]` shape (id, kind, title, description, href, createdAt, actor) sorted newest-first.
+  - `controllers/notification.controller.ts` — single `listNotifications` GET handler.
+  - `routes/notification.routes.ts` — mounted at `/api/notifications`, JWT required, both roles.
+  - **Mark-as-read is FRONTEND-ONLY** (no DB column, no endpoint). Each user keeps an ISO timestamp at `localStorage.notif:lastRead:{userId}`. Any notification with `createdAt > lastRead` is "unread". "Mark read" stamps `lastRead` with the newest visible `createdAt`. Verified end-to-end: badge "9" → click Mark read → summary "9 recent · 0 unread", badge disappears, button hides.
+
+  ### Frontend
+  - `pages/ReportsPage.tsx` — single ADMIN-only page rendered at `/reports` (route already existed in `nav-items.ts` as ADMIN-restricted, but had no page before). Five sections, each with its own header card (icon + title + subtitle + per-section CSV button), stat cards, charts (recharts BarChart / PieChart / LineChart depending on the data shape), and tables where the data is dense. Date-range filter (`from` / `to` date inputs + Apply/Clear) drives the Lead + Deal sections; the rest are absolute snapshots.
+    - Stat cards use the existing `<Card>` + StatCard inline component.
+    - Charts use the existing thin Shadcn `ChartContainer` wrapper at `components/ui/chart.tsx`.
+    - "Print / PDF" button at the top calls `window.print()`. A scoped `@media print` block hides nav / sidebar / filter card + collapses spacing so the printed output is a clean three-page report (verified visually).
+    - All five sections expose stable testids: `report-{leads|properties|clients|deals|agents}-section` + per-stat `report-{section}-{key}` + `-export-button`.
+  - `services/reports.ts` — typed wrappers around the five JSON endpoints. CSV exports use `responseType: 'blob'` (`api.get(...)` + `URL.createObjectURL`) — same pattern as the existing analytics CSV export.
+  - `services/notifications.ts` — `list()` wrapper + `getLastRead(userId)` / `setLastRead(userId, iso)` helpers (localStorage round-trip wrapped in try/catch so private-mode browsers don't crash).
+  - `components/layout/NotificationPanel.tsx` — Radix `DropdownMenu`-based dropdown anchored to the navbar bell. Polls `/api/notifications` every 60s while mounted. Surfaces per-kind icon + colour pill, item title, truncated description, relative time ("17m ago"), actor attribution, unread-dot on items newer than `lastRead`, count badge on the bell (`9+` when > 9), Mark-read button (only visible when there are unread items), empty state, loading skeletons.
+  - `components/layout/Navbar.tsx` — replaced the dead Bell button with `<NotificationPanel />`. No other navbar changes.
+  - `App.tsx` — added the `/reports` route under the existing `<ProtectedRoute roles={['ADMIN']}>` block. No route additions for notifications (panel mounts inside Navbar).
+
+  ### Files added
+    - Backend: `services/report.service.ts`, `controllers/report.controller.ts`, `routes/report.routes.ts`, `services/notification.service.ts`, `controllers/notification.controller.ts`, `routes/notification.routes.ts`.
+    - Frontend: `pages/ReportsPage.tsx`, `services/reports.ts`, `services/notifications.ts`, `components/layout/NotificationPanel.tsx`.
+  ### Files modified
+    - `backend/src/index.ts` — 4 lines (2 imports + 2 `app.use` registrations).
+    - `frontend/src/App.tsx` — 2 lines (import + admin route registration).
+    - `frontend/src/components/layout/Navbar.tsx` — swapped the Bell placeholder for `<NotificationPanel />` + dropped now-unused `Bell` import.
+
+  ### Files NOT touched
+  Everything else (auth, leads, follow-ups, communications, WhatsApp, analytics, CSV, users, pipeline, properties, clients, deals Phase-1+2, MainLayout, Sidebar, MobileSidebar, nav-items, Prisma schema, db config).
+
+  ### Live smoke test (admin token)
+    ```
+    GET /api/reports/leads      → totalLeads=9, byStatus[6], bySource[7], conversionRate=11.11
+    GET /api/reports/properties → total=3, available=3, sold=0
+    GET /api/reports/clients    → total=3, linked=1, unlinked=2
+    GET /api/reports/deals      → total=2, totalValue=4_00_01_000, wonCount=1, revenueTrend=[{2026-05, 50_01_000, 1}]
+    GET /api/reports/agents     → 7 agent rows with dealsCount + leadConversion + followUpRate per agent
+    GET /api/notifications      → 9 items (5 FOLLOWUP/DEAL_ACTIVITY/LEAD_ASSIGNMENT mix) merged + sorted newest-first
+    Agent token → /api/reports/leads → HTTP 403 (Insufficient permissions). /api/notifications → 6 items scoped to agent's own deals + leads.
+    ```
+
+  ### UI verified via screenshots at 1440x900 (light theme)
+    - `/reports` ADMIN shows: header, From/To/Apply/Clear filter, then five section cards in order — Lead Reports (4 stat cards + 2 charts), Property Reports (3 stat cards + pie chart), Client Reports (3 stat cards), Deal Reports (4 stat cards + table + 12-month line chart), Agent Reports (table with 7 rows). Each section has a working "CSV" button (blob download verified).
+    - Top-right bell shows a `9` badge. Click → dropdown panel mounts with title "Notifications", summary "9 recent · 9 unread", and the merged feed of deal-activity + lead-assignment items. Click "Mark read" → summary changes to "9 recent · 0 unread", badge disappears. Empty state copy "Nothing new yet" verified separately by stamping a future lastRead timestamp.
+  - **Phase 11.0 status: COMPLETE.**
+
 ---
 
 ## Database

@@ -19,6 +19,7 @@ import ClientDetailPage from '@/pages/ClientDetailPage';
 import DealsPage from '@/pages/DealsPage';
 import DealBoardPage from '@/pages/DealBoardPage';
 import DealDetailPage from '@/pages/DealDetailPage';
+import ReportsPage from '@/pages/ReportsPage';
 
 export default function App() {
   return (
@@ -51,6 +52,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
             <Route element={<MainLayout />}>
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
             </Route>
           </Route>
         </Route>

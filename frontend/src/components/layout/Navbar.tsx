@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Menu, Moon, Sun, Bell, LogOut, User, Settings } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, User, Settings } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import NotificationPanel from '@/components/layout/NotificationPanel';
 
 interface NavbarProps {
   onMobileMenuOpen: () => void;
@@ -67,16 +68,8 @@ export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
           <Moon size={18} className="absolute rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
         </Button>
 
-        {/* Notifications placeholder */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative text-muted-foreground hover:text-foreground"
-          data-testid="notifications-button"
-        >
-          <Bell size={18} />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary" />
-        </Button>
+        {/* Notifications */}
+        <NotificationPanel />
 
         {/* User Dropdown */}
         <DropdownMenu>

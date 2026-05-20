@@ -14,6 +14,8 @@ import { propertyRouter } from './routes/property.routes';
 import { uploadRouter } from './routes/upload.routes';
 import { clientRouter } from './routes/client.routes';
 import { dealRouter } from './routes/deal.routes';
+import { reportRouter } from './routes/report.routes';
+import { notificationRouter } from './routes/notification.routes';
 import { prisma } from './lib/prisma';
 import { seedAdmin } from './scripts/seed';
 
@@ -73,6 +75,8 @@ app.use('/api/properties', propertyRouter);
 app.use('/api/uploads', uploadRouter);
 app.use('/api/clients', clientRouter);
 app.use('/api/deals', dealRouter);
+app.use('/api/reports', reportRouter);
+app.use('/api/notifications', notificationRouter);
 
 // 404 handler
 app.use((_req, res) => {
