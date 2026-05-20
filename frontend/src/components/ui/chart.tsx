@@ -4,6 +4,20 @@
  *
  * This is intentionally minimal — we don't ship the full shadcn/chart.tsx
  * registry component because we only need a responsive shell.
+ *
+ * `printMode`:
+ *   Recharts' ResponsiveContainer measures its parent via ResizeObserver,
+ *   which is asynchronous. When the browser snapshots the page for
+ *   `window.print()` the @media print rules change parent widths
+ *   synchronously, but Recharts has not yet re-measured — so the embedded
+ *   <svg> is captured at its stale (often zero-or-tiny) on-screen width,
+ *   producing blank/clipped charts in the generated PDF.
+ *
+ *   When `printMode` is true we bypass ResponsiveContainer entirely and
+ *   clone the chart child with explicit width + height props. The chart
+ *   then renders to a fully-laid-out SVG that is print-snapshot-safe.
+ *
+ *   Normal on-screen rendering is unchanged (printMode defaults to false).
  */
 import * as React from 'react';
 import { ResponsiveContainer } from 'recharts';
@@ -11,14 +25,42 @@ import { cn } from '@/lib/utils';
 
 interface ChartContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   height?: number;
+  /** Render the chart with explicit width/height (no ResponsiveContainer)
+   *  so the SVG is fully laid out before a print snapshot. */
+  printMode?: boolean;
+  /** Explicit width used when `printMode` is true. Defaults to 680px which
+   *  comfortably fits inside an A4 page with 12mm margins (~ 186mm usable
+   *  width, halved for the two-column charts and rounded down to 680). */
+  printWidth?: number;
 }
 
 export function ChartContainer({
   className,
   children,
   height = 260,
+  printMode = false,
+  printWidth = 680,
   ...rest
 }: ChartContainerProps) {
+  if (printMode && React.isValidElement(children)) {
+    // Clone the chart with explicit pixel dimensions — bypasses
+    // ResponsiveContainer + ResizeObserver entirely so the SVG is
+    // ready in the same tick as the print snapshot.
+    const printChild = React.cloneElement(
+      children as React.ReactElement<{ width?: number; height?: number }>,
+      { width: printWidth, height },
+    );
+    return (
+      <div
+        className={cn('w-full', className)}
+        style={{ width: printWidth, height, maxWidth: '100%' }}
+        {...rest}
+      >
+        {printChild}
+      </div>
+    );
+  }
+
   return (
     <div className={cn('w-full', className)} style={{ height }} {...rest}>
       <ResponsiveContainer width="100%" height="100%">

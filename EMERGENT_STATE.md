@@ -52,6 +52,16 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+### Latest Bug Fix (2026-05-20)
+**Reports PDF — Charts missing/blank in printed output** — FIXED.
+- Root cause: Recharts `ResponsiveContainer` measures parent width asynchronously via `ResizeObserver`. `window.print()` snapshots the page synchronously, so the embedded `<svg>` was captured at its stale on-screen width before the print-media layout shift propagated — producing blank chart areas in the generated PDF.
+- Fix scope: frontend-only, 2 files (`/app/frontend/src/components/ui/chart.tsx` + `/app/frontend/src/pages/ReportsPage.tsx`). No backend, no architecture, no other pages touched.
+  1. `ChartContainer` now accepts `printMode` + `printWidth` (default 680). When `printMode=true` it bypasses `ResponsiveContainer` and clones the chart child with explicit pixel `width` + `height` — so the SVG is fully laid out in the same tick as the print snapshot.
+  2. `ReportsPage` adds a `printing` state, registers `beforeprint`/`afterprint` window listeners (so Ctrl+P / Cmd+P / OS-menu print also reflow correctly), and the print button now follows a 4-step async flow: setPrinting(true) → wait 2× `requestAnimationFrame` → dispatch a `resize` event (belt-and-braces for any other Recharts on the page) → 150 ms timer → `window.print()`. `afterprint` resets `printing` to false.
+  3. All 5 chart instances on the Reports page pass `printMode={printing}` (Lead by status, Lead by source, Property pie, Deal revenue trend).
+- Preserved: existing page-break CSS, every `print:hidden` rule, CSV export endpoints + buttons, normal on-screen `ResponsiveContainer` rendering (`printMode` defaults to `false`).
+- Verified: Playwright print emulation + `page.pdf()` → 4-page A4 PDF with every chart rendering correctly. DOM inspection confirms each `.recharts-surface` SVG has `width=680 height=220` in print mode. Tables (Deals by status, Agents) and metrics cards unchanged. Page-break fixes (Deals + Agents on fresh pages) preserved.
+
 ### Current Phase
 **Phase 2: Lead Management** — COMPLETE
 **Phase 2.5: Follow-up Module (Backend + Frontend)** — COMPLETE & VERIFIED (2026-05-19)

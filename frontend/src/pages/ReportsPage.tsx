@@ -78,6 +78,12 @@ export default function ReportsPage() {
   const [agentRows, setAgentRows] = useState<AgentReportRow[] | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // `printing` toggles every <ChartContainer> on this page into a
+  // fixed-pixel-size render path so the SVG is fully laid out BEFORE
+  // the browser takes its print snapshot. See chart.tsx for the full
+  // rationale (Recharts + ResponsiveContainer + ResizeObserver async).
+  const [printing, setPrinting] = useState(false);
+
   const buildDateParams = useCallback((): { from?: string; to?: string } => {
     const params: { from?: string; to?: string } = {};
     if (from) params.from = from;
@@ -136,7 +142,36 @@ export default function ReportsPage() {
     }
   };
 
-  const handlePrint = () => window.print();
+  // Listen for browser-initiated print (Ctrl+P / Cmd+P / OS menu print)
+  // so charts also reflow correctly when the user bypasses our button.
+  // `afterprint` always resets the flag.
+  useEffect(() => {
+    const before = () => setPrinting(true);
+    const after = () => setPrinting(false);
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', after);
+    };
+  }, []);
+
+  const handlePrint = async () => {
+    // 1. Flip into print-mode synchronously so React queues a re-render
+    //    of every ChartContainer with explicit pixel width/height.
+    setPrinting(true);
+    // 2. Wait two animation frames + a small buffer so React commits the
+    //    new tree and Recharts paints the static-sized SVGs before the
+    //    print dialog snapshots the page.
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => r())),
+    );
+    // Belt-and-braces: nudge any lingering ResponsiveContainer listeners.
+    window.dispatchEvent(new Event('resize'));
+    await new Promise<void>((r) => setTimeout(r, 150));
+    // 3. Open the print dialog. `afterprint` will reset `printing`.
+    window.print();
+  };
 
   const hasFilter = from || to;
 
@@ -230,6 +265,7 @@ export default function ReportsPage() {
         report={leadReport}
         loading={loading}
         onExport={() => exportSection('leads')}
+        printing={printing}
       />
 
       {/* Property report */}
@@ -237,6 +273,7 @@ export default function ReportsPage() {
         report={propertyReport}
         loading={loading}
         onExport={() => exportSection('properties')}
+        printing={printing}
       />
 
       {/* Client report */}
@@ -251,6 +288,7 @@ export default function ReportsPage() {
         report={dealReport}
         loading={loading}
         onExport={() => exportSection('deals')}
+        printing={printing}
       />
 
       {/* Agent report */}
@@ -431,10 +469,12 @@ function LeadReportSection({
   report,
   loading,
   onExport,
+  printing,
 }: {
   report: LeadReport | null;
   loading: boolean;
   onExport: () => void;
+  printing: boolean;
 }) {
   return (
     <section data-testid="report-leads-section">
@@ -468,7 +508,7 @@ function LeadReportSection({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
                 <div data-testid="report-leads-by-status-chart">
                   <p className="text-sm font-medium mb-2">By status</p>
-                  <ChartContainer height={220}>
+                  <ChartContainer height={220} printMode={printing}>
                     <BarChart data={report.byStatus} layout="vertical" margin={{ left: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis type="number" fontSize={11} />
@@ -480,7 +520,7 @@ function LeadReportSection({
                 </div>
                 <div data-testid="report-leads-by-source-chart">
                   <p className="text-sm font-medium mb-2">By source</p>
-                  <ChartContainer height={220}>
+                  <ChartContainer height={220} printMode={printing}>
                     <BarChart data={report.bySource}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="source" fontSize={10} angle={-20} textAnchor="end" height={56} />
@@ -503,10 +543,12 @@ function PropertyReportSection({
   report,
   loading,
   onExport,
+  printing,
 }: {
   report: PropertyReport | null;
   loading: boolean;
   onExport: () => void;
+  printing: boolean;
 }) {
   return (
     <section data-testid="report-properties-section">
@@ -532,7 +574,7 @@ function PropertyReportSection({
                 />
                 <StatCard label="Sold" value={report.sold} testId="report-properties-sold" />
               </div>
-              <ChartContainer height={220}>
+              <ChartContainer height={220} printMode={printing}>
                 <PieChart>
                   <Pie
                     data={report.byStatus.filter((b) => b.count > 0)}
@@ -604,10 +646,12 @@ function DealReportSection({
   report,
   loading,
   onExport,
+  printing,
 }: {
   report: DealReport | null;
   loading: boolean;
   onExport: () => void;
+  printing: boolean;
 }) {
   return (
     <section data-testid="report-deals-section">
@@ -677,7 +721,7 @@ function DealReportSection({
                       No revenue in the last 12 months
                     </div>
                   ) : (
-                    <ChartContainer height={220}>
+                    <ChartContainer height={220} printMode={printing}>
                       <LineChart
                         data={report.revenueTrend.map((p) => ({
                           ...p,
