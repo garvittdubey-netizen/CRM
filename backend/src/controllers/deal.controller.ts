@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as dealService from '../services/deal.service';
 import { buildDealTimeline } from '../services/deal-timeline.service';
+import { syncLeadStatusFromDeal } from '../services/lead-sync.service';
 import { isAdminLevel } from '../lib/roles';
 
 /** Indian-format short money string used inside activity descriptions. */
@@ -201,6 +202,21 @@ export async function editDeal(req: Request, res: Response): Promise<void> {
         dealId: deal.id,
         userId: req.user!.id,
         ...ev,
+      });
+    }
+
+    // Cross-module sync: when the deal's status actually changed, propagate
+    // the equivalent stage back to the linked Lead so the Lead page never
+    // drifts from the Deal page. No-op if the deal status doesn't map, the
+    // client has no linked lead, or the lead already matches the target.
+    // Best-effort — errors are swallowed inside the service so the deal
+    // update is never rolled back by a lead-sync glitch.
+    if (req.body.status !== undefined && existing.status !== deal.status) {
+      await syncLeadStatusFromDeal({
+        dealId: deal.id,
+        clientId: deal.clientId,
+        newDealStatus: deal.status,
+        actorId: req.user!.id,
       });
     }
 

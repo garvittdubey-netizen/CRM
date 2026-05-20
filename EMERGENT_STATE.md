@@ -52,6 +52,45 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 14.3: Deal → Lead status synchronization** — COMPLETE (2026-05-21)
+  - **Scope**: Critical workflow fix. The `Lead → Client → Deal` linkage was already in place from Phase 13.0, but the **status** on the source Lead did not reflect downstream Deal-stage changes — so a WON deal could still leave its originating lead showing `status=NEW`. This phase adds a backend-only sync step that propagates Deal status changes back up the chain (`Deal → Deal.clientId → Client.linkedLeadId → Lead.status`). No frontend changes; no schema change; no migration. Strictly additive.
+  - **Status mapping** (`backend/src/services/lead-sync.service.ts`, `DEAL_TO_LEAD` table):
+    | Deal status        | → Lead status |
+    |--------------------|---------------|
+    | NEGOTIATION        | NEGOTIATING   |
+    | DOCUMENTATION      | QUALIFIED     |
+    | PAYMENT_PENDING    | QUALIFIED     |
+    | WON                | WON           |
+    | LOST               | LOST          |
+    | NEW                | *(not synced — preserves CONTACTED/QUALIFIED)* |
+  - **Sync guards** (all enforced inside `syncLeadStatusFromDeal`):
+    1. Deal's status must actually have changed (caller responsibility; the `editDeal` controller already diffs).
+    2. The new deal status must map (entries above). `NEW` and unknown values are no-ops.
+    3. `Deal.clientId` must resolve to a client with a non-null `linkedLeadId`.
+    4. That lead must still exist (FK guard — defends against orphaned linkedLeadId left by `SetNull` on a prior lead delete).
+    5. Lead's current status must differ from the target (idempotent — no spurious activity rows on repeat deal updates).
+  - **Activity trail**: writes one `Activity` row per actual sync with
+    - `userId = actor`, `leadId = synced lead`,
+    - `action = 'LEAD_STATUS_SYNCED'`,
+    - `description = 'Lead status synced from deal: <prev> → <next>'`,
+    - `metadata = { previousStatus, newStatus, source: 'DEAL', dealId }`.
+    These rows surface automatically in the existing `/api/activities` feed, the per-lead `LeadTimeline`, AND the merged client timeline (since `client-timeline.service` already pulls lead Activity rows when the client has a linkedLeadId).
+  - **Files added (1)**: `backend/src/services/lead-sync.service.ts`.
+  - **Files modified (1)**: `backend/src/controllers/deal.controller.ts` — added import + one block inside `editDeal` calling `syncLeadStatusFromDeal(...)` after the existing lifecycle-events loop, guarded by `req.body.status !== undefined && existing.status !== deal.status`.
+  - **Files NOT touched**: Prisma schema, every other backend route/service/controller, RBAC middleware, reports/analytics/communications/CSV/notifications, every frontend file (no frontend changes per spec), Lead service (no behaviour change — we just bump status via `prisma.lead.update`).
+  - **Best-effort semantics**: errors inside the lead-sync service are swallowed (`console.warn` only) so a sync glitch can never roll back the parent deal update. Spec is explicit that the deal write is the source of truth.
+  - **Verified via curl (9/9)** against the real Neon DB:
+    - Deal NEGOTIATION → Lead NEGOTIATING ✓
+    - Deal DOCUMENTATION → Lead QUALIFIED ✓
+    - Deal PAYMENT_PENDING → Lead QUALIFIED (correctly no-op when lead is already QUALIFIED — no spurious activity row) ✓
+    - Deal WON → Lead WON ✓
+    - Deal LOST → Lead LOST ✓
+    - Deal NEW does NOT clobber a manually-set lead status (QUALIFIED preserved) ✓
+    - Client without linkedLeadId — deal updates succeed, sync is a clean no-op, no error ✓
+    - Exactly 4 `LEAD_STATUS_SYNCED` Activity rows logged across the 5 transitions (one per actual lead change), each with the correct `{previousStatus, newStatus, source:'DEAL', dealId}` metadata ✓
+    - Deal update response itself unchanged (status, all fields) — no regression on the existing Deal API contract ✓
+  - **Implications for the user-facing surface**: zero. The Lead Detail page, Pipeline Kanban, Reports module, Analytics dashboard, and Pipeline status badges all read `lead.status` directly — they automatically pick up the synced value on the next refresh without any frontend change. The merged client timeline already includes deal-side `STATUS_CHANGED` rows AND now lead-side `LEAD_STATUS_SYNCED` rows, so the audit story is complete on both sides.
+
 **Phase 14.2: Reactivate Lead workflow** — COMPLETE (2026-05-21)
   - **Scope**: New workflow on the Client detail page that moves a stalled / inactive client (typically post Deal-LOST) back into active lead nurturing without losing any history. Purely additive — no schema change, no Prisma migration, no architecture change. Builds entirely on existing tables (`Client`, `Lead`, `ClientActivity`, `Activity`).
   - **Workflow surfaced**: `Lead → Client → Deal → Deal LOST / Client inactive → Reactivate Lead → Lead active again`. The linkedLeadId is preserved on the RESTORE path so the entire pre-existing history (communications, follow-ups, deal references) stays attached.
