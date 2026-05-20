@@ -12,6 +12,7 @@ model User {
   name            String
   email           String          @unique
   password        String
+  profileImage    String?
   role            Role            @default(AGENT)
   isActive        Boolean         @default(true)
   createdAt       DateTime        @default(now())
@@ -25,8 +26,28 @@ model User {
   clientActivities ClientActivity[] @relation("ClientActivityActor")
   deals           Deal[]          @relation("DealAssignedAgent")
   dealActivities  DealActivity[]  @relation("DealActivityActor")
+  tenantSettingsUpdates TenantSettings[] @relation("TenantSettingsUpdatedBy")
 
   @@map("users")
+}
+
+/// Singleton tenant-wide settings. There is exactly one row with id="default"
+/// that is upserted on first read. ADMIN-only writes.
+///
+/// `autoAssignLeadsEnabled` and `agentVisibilityMode` are persisted but are
+/// NOT yet wired into the Leads workflow — the UI labels them
+/// "Saved — activation in future workflow phase" so the behaviour is honest.
+model TenantSettings {
+  id                     String   @id @default("default")
+  autoAssignLeadsEnabled Boolean  @default(false)
+  /// "OWN_ONLY" — agents see only their assigned leads (default, matches today)
+  /// "ALL"      — agents see all leads (admin-style visibility)
+  agentVisibilityMode    String   @default("OWN_ONLY")
+  updatedById            String?
+  updatedBy              User?    @relation("TenantSettingsUpdatedBy", fields: [updatedById], references: [id])
+  updatedAt              DateTime @updatedAt
+
+  @@map("tenant_settings")
 }
 
 model Property {

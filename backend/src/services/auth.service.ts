@@ -7,15 +7,24 @@ export interface UserDto {
   name: string;
   email: string;
   role: string;
+  profileImage: string | null;
   createdAt: Date;
 }
 
-function toDto(user: { id: string; name: string; email: string; role: string; createdAt: Date }): UserDto {
+function toDto(user: {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  profileImage: string | null;
+  createdAt: Date;
+}): UserDto {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
+    profileImage: user.profileImage,
     createdAt: user.createdAt,
   };
 }

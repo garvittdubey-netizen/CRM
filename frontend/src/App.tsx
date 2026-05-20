@@ -20,6 +20,7 @@ import DealsPage from '@/pages/DealsPage';
 import DealBoardPage from '@/pages/DealBoardPage';
 import DealDetailPage from '@/pages/DealDetailPage';
 import ReportsPage from '@/pages/ReportsPage';
+import SettingsPage from '@/pages/SettingsPage';
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/deals/board" element={<DealBoardPage />} />
             <Route path="/deals/:id" element={<DealDetailPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
           {/* Admin-only routes */}
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>

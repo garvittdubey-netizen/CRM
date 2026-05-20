@@ -13,8 +13,8 @@ cloudinary.config({
   secure: true,
 });
 
-const ALLOWED_FOLDERS = new Set<string>(['properties']);
-const ALLOWED_FOLDER_PREFIXES = ['properties/'];
+const ALLOWED_FOLDERS = new Set<string>(['properties', 'avatars']);
+const ALLOWED_FOLDER_PREFIXES = ['properties/', 'avatars/'];
 
 export interface SignedUploadPayload {
   signature: string;

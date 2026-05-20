@@ -52,6 +52,55 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 11.0: Settings page** — COMPLETE (2026-05-20)
+  - **Scope**: A new self-contained `/settings` page with four tabbed sections (Profile, Preferences, Team Settings [admin], System Status [admin]). Strictly additive — no existing module (auth, leads, follow-ups, communications, whatsapp, analytics, csv, users, pipeline, properties, clients, deals, reports, notifications) was modified or rewired. The Settings nav entry was already in `nav-items.ts` from Phase 6.0; this phase only added the route + page.
+  - **New Prisma migration**: `20260520092937_add_settings_and_profile_image`:
+    - Adds `User.profileImage String?` (nullable, additive).
+    - Adds new `TenantSettings` model — singleton row at id="default" with `autoAssignLeadsEnabled Boolean @default(false)`, `agentVisibilityMode String @default("OWN_ONLY")`, `updatedById String?`, `updatedAt DateTime @updatedAt`. Includes the back-relation `User.tenantSettingsUpdates` so foreign keys are tracked.
+    - Pre-existing users migrate safely (profileImage defaults to NULL).
+  - **Backend API surface** (all additive, JWT-protected unless stated):
+    - `GET    /api/auth/profile`        self profile (id, name, email, role, profileImage, createdAt).
+    - `PUT    /api/auth/profile`        updates `name` and/or `profileImage`. Email is intentionally NOT mutable (matches existing User Management contract). Returns the updated row.
+    - `PUT    /api/auth/password`       `{currentPassword, newPassword (≥ 8)}` → verifies current password via bcrypt, then re-hashes the new one. 400 + `Current password is incorrect` if the current pass doesn't match.
+    - `GET    /api/settings/tenant`     any authenticated user. Upserts the singleton row on first read so callers never see a 404.
+    - `PUT    /api/settings/tenant`     ADMIN only. Stamps `updatedById` from `req.user`.
+    - `GET    /api/system/status`       ADMIN only. Returns `{whatsapp, cloudinary, database, backend, checkedAt}` — each probe is `{healthy, latencyMs, message}`. Implemented as four parallel probes via `Promise.all`:
+      * WhatsApp  → `listTemplates(1)` via Meta Graph (5 s timeout). Currently reports DOWN because the access token in the env is expired (per Phase 3.0 notes).
+      * Cloudinary → `cloudinary.api.ping()` with Basic auth (5 s timeout).
+      * Database  → `prisma.$queryRaw'SELECT 1'` (3 s timeout).
+      * Backend   → self — always healthy if this handler runs.
+  - **Cloudinary folder allow-list extended**: added `avatars` (single-line change to `cloudinary.service.ts`) so the existing `/api/uploads/cloudinary-signature` endpoint can issue signatures for `folder=avatars`. The Property uploader is untouched and still uses `folder=properties`.
+  - **Files added (backend)**:
+    - `services/profile.service.ts`         self-service profile + password helpers.
+    - `services/tenant-settings.service.ts` singleton upsert helpers.
+    - `controllers/profile.controller.ts`   getMyProfile / updateMyProfile / changeMyPassword.
+    - `controllers/tenant-settings.controller.ts` readTenantSettings / writeTenantSettings.
+    - `controllers/system.controller.ts`    getSystemStatus (4 parallel probes w/ timeouts).
+    - `routes/settings.routes.ts`           wires /tenant.
+    - `routes/system.routes.ts`             wires /status (ADMIN only).
+  - **Files modified (backend, minimal additive)**:
+    - `prisma/schema.prisma`                 `User.profileImage`, `User.tenantSettingsUpdates`, new `TenantSettings` model.
+    - `services/cloudinary.service.ts`       folder allow-list extended to `['properties', 'avatars']`.
+    - `services/auth.service.ts`             `UserDto` + `toDto` extended with `profileImage` (so existing `/api/auth/me` also returns it — needed for navbar avatar). All other auth logic untouched.
+    - `routes/auth.routes.ts`                appended `GET /profile`, `PUT /profile`, `PUT /password`. Existing `/login`, `/register`, `/me`, `/logout` untouched.
+    - `index.ts`                             two `app.use(...)` lines added at the bottom of the router list.
+  - **Frontend additions**:
+    - `pages/SettingsPage.tsx` (~700 lines, single file with clear internal section components). Tabs: Profile / Preferences / Team Settings / System Status. Test-IDs follow the `settings-tab-{key}`, `settings-{section}`, `profile-*`, `password-*`, `theme-option-{light|dark|system}`, `notif-{key}`, `default-landing-select`, `team-autoassign-toggle`, `team-visibility-select`, `system-row-{service}`, `system-refresh-button` naming convention.
+    - `services/settings.ts`         profileApi (get/update/changePassword), tenantSettingsApi (get/update), systemApi (status), and local-only preference helpers (`loadPreferences` / `savePreferences` / `LANDING_PAGE_OPTIONS` / `DEFAULT_PREFERENCES`) + a dedicated `uploadAvatarToCloudinary(file, onProgress)` that targets the `avatars` folder.
+    - `App.tsx`                      one route added under `MainLayout`: `<Route path="/settings" element={<SettingsPage />} />`.
+    - `types/index.ts`               `User.profileImage?: string | null` (optional so backwards compat is fine).
+  - **Preferences storage** is localStorage-only at the key `settings:preferences:v1`:
+    - Theme uses next-themes (already wired in `main.tsx` since pre-Phase-1; the picker only calls `setTheme`).
+    - Four notification toggles (`emailDigest`, `followUpReminders`, `whatsAppInbound`, `systemUpdates`) — persisted in localStorage; no backend, no behavioural wiring claimed.
+    - Default landing page — persisted in localStorage; the spec deliberately does NOT wire it into the post-login redirect to avoid touching auth (constraint).
+  - **Team Settings — honest labels**: every flag carries the caption `"Saved — activation in future workflow phase"` in an amber pill, exactly as requested. The Leads workflow is NOT modified and the toggles have no behavioural effect yet — only persistence.
+  - **RBAC**: every protected endpoint flows through `authenticate` middleware; `/api/settings/tenant PUT` and `/api/system/status` add `requireRole('ADMIN')`. Frontend mirrors this by filtering the tab list to admin-only entries when `user.role !== 'ADMIN'`.
+  - **Verified end-to-end** (no testing subagent — explicit constraint "no full regression suite"; manual + curl + Playwright screenshots only):
+    - Backend: 8/8 curl scenarios green — GET/PUT profile (with photo URL persistence + clear), PUT password (wrong current → 400, correct current → 200), old password rejected after change, new password works, reset password round-trip, agent → 403 on `/settings/tenant PUT` and `/system/status`.
+    - Frontend (ADMIN, 1440×900): all 4 tabs render real backend data; toggle on Auto-assign persists across refresh; System Status shows WhatsApp DOWN (expired token, expected per Phase 3.0), Cloudinary HEALTHY 216 ms, Database HEALTHY 217 ms, Backend HEALTHY 0 ms.
+    - Frontend (AGENT): only `Profile` + `Preferences` tabs visible; `Team Settings` and `System Status` correctly hidden by the role filter.
+  - **Files NOT touched**: backend auth/leads/follow-ups/communications/whatsapp/analytics/csv/users/pipeline/properties/clients/deals/reports/notifications services, controllers and routes (any); MainLayout, Navbar, Sidebar, MobileSidebar, ProtectedRoute, LoginPage, AuthContext, useAuth hook, NotificationPanel, any existing service file in `frontend/src/services/*` except adding the new `settings.ts`; `frontend/src/types/index.ts` (only a single optional `profileImage?` field added to `User`). The DB connection config (`DATABASE_URL`) is unchanged — the migration is purely additive (new column + new table).
+
 ### Latest Bug Fix (2026-05-20)
 **Reports PDF — Charts missing/blank in printed output** — FIXED.
 - Root cause: Recharts `ResponsiveContainer` measures parent width asynchronously via `ResizeObserver`. `window.print()` snapshots the page synchronously, so the embedded `<svg>` was captured at its stale on-screen width before the print-media layout shift propagated — producing blank chart areas in the generated PDF.
