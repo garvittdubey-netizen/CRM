@@ -52,6 +52,34 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 14.2: Reactivate Lead workflow** — COMPLETE (2026-05-21)
+  - **Scope**: New workflow on the Client detail page that moves a stalled / inactive client (typically post Deal-LOST) back into active lead nurturing without losing any history. Purely additive — no schema change, no Prisma migration, no architecture change. Builds entirely on existing tables (`Client`, `Lead`, `ClientActivity`, `Activity`).
+  - **Workflow surfaced**: `Lead → Client → Deal → Deal LOST / Client inactive → Reactivate Lead → Lead active again`. The linkedLeadId is preserved on the RESTORE path so the entire pre-existing history (communications, follow-ups, deal references) stays attached.
+  - **Backend additions**:
+    - `services/client-reactivation.service.ts` (NEW) — `reactivateClient({ clientId, reason, actorId, actorName })`:
+      * If `client.linkedLeadId` resolves to an existing lead → **RESTORE**: `prisma.lead.update({ status: 'NEW' })`. linkedLeadId is left untouched.
+      * Else → **CREATE**: synthesises a new lead from `{fullName, phone, email, budget, preferredLocation, notes, assignedAgentId}` with `status=NEW, source=MANUAL, tags=['reactivated']`, then `prisma.client.update({ linkedLeadId: newLeadId })` to re-attach.
+      * Logs `ClientActivity` `action=CLIENT_REVERTED` with `description + metadata.reason + metadata.mode + metadata.leadId + metadata.previousLinkedLeadId + metadata.actorName`.
+      * Logs `Activity` (lead-side) `action=CLIENT_REVERTED` so the lead's own LeadTimeline + global Activity feed surface the event with the reason.
+      * Returns `{ client, lead, mode: 'RESTORED' | 'CREATED' }`.
+    - `controllers/client.controller.ts` — new `reactivateClientHandler`. Validates `reason` is present + ≤500 chars (else 400), 404 on missing client, RBAC enforced inline: `isAdminLevel(req.user.role) || client.assignedAgentId === req.user.id` (else 403 "You can only reactivate clients assigned to you").
+    - `routes/client.routes.ts` — `clientRouter.post('/:id/reactivate', authenticate, reactivateClientHandler)`. No `requireRole` because AGENT-owned clients must be reactivatable by their own agent (matches existing edit/delete RBAC pattern).
+  - **Frontend additions**:
+    - `services/clients.ts` — `clientsApi.reactivate(id, reason)` → `{client, lead, mode}`.
+    - `components/clients/ReactivateLeadModal.tsx` (NEW) — Shadcn Dialog. Reason dropdown (Budget issue / Timing issue / Property unavailable / Lost contact / Other), optional details textarea, "Other"-requires-details inline validation, 500-char cap. Test-IDs: `reactivate-lead-modal`, `reactivate-reason-select`, `reactivate-reason-option-{slug}`, `reactivate-details-textarea`, `reactivate-submit-button`, `reactivate-cancel-button`, `reactivate-error`.
+    - `pages/ClientDetailPage.tsx` — new "Reactivate Lead" button in the canManage action group (`reactivate-lead-button`, with `RotateCcw` icon, visible to SUPER_ADMIN / ADMIN / assigned AGENT — the same `canManage` gate already used for Edit / Delete / Create Deal / Message). Mounts `ReactivateLeadModal` at page level. On success, surfaces a primary-tinted banner (`reactivation-success-banner`) with mode-specific copy + a `reactivation-open-lead-link` deep-linking to `/leads/{lead.id}`; banner is dismissable.
+    - `components/clients/ClientActivityTimeline.tsx` — added `RotateCcw` icon mapping for `action=CLIENT_REVERTED` on BOTH `CLIENT` and `ACTIVITY` timeline sources, so the new entries read naturally in the unified feed.
+  - **RBAC enforcement** (defence in depth):
+    - Backend: route is authenticated; controller checks `isAdminLevel(role) || assignedAgentId === user.id` BEFORE delegating to the service.
+    - Frontend: button is conditionally rendered behind `canManage`, the existing `isAdmin || assignedAgentId===self` gate. AGENT viewing a client they don't own already 403s on `GET /api/clients/:id` and lands on the error state, so the button is never reachable.
+  - **Files added (2)**: `backend/src/services/client-reactivation.service.ts`, `frontend/src/components/clients/ReactivateLeadModal.tsx`.
+  - **Files modified (4)**: `backend/src/controllers/client.controller.ts` (added one handler + one import), `backend/src/routes/client.routes.ts` (one route line), `frontend/src/services/clients.ts` (one method), `frontend/src/pages/ClientDetailPage.tsx` (button + banner + modal mount), `frontend/src/components/clients/ClientActivityTimeline.tsx` (icon mapping).
+  - **Files NOT touched**: Prisma schema, every other backend route/service/controller, every other frontend page or component, auth flow, RBAC middleware, the Deal module (no FK changes), the Lead module (only an UPDATE that bumps status — same as the existing pipeline drag-drop). Communications, follow-ups, deal references remain attached to the same `leadId`.
+  - **Verified end-to-end** (`/app/test_reports/iteration_19.json`):
+    - **Backend (pytest, 12/12)**: RESTORE happy path (linkedLeadId preserved, status flipped LOST→NEW), CREATE happy path (snapshot fields + tags=['reactivated'] + new linkedLeadId attached), missing/empty reason 400, >500-char reason 400, AGENT on own client 200, AGENT on other-agent's client 403, ADMIN on any client 200, SUPER_ADMIN on any client 200, missing client 404, timeline shows CLIENT_REVERTED in BOTH CLIENT and ACTIVITY sources with the reason text in description, regression on communication/follow-ups/deals linkage preserved (only lead.status changed).
+    - **Frontend (Playwright, 10/10)**: button visibility matrix correct across all 3 roles + non-assigned AGENT, modal renders with Shadcn Select / Textarea / Submit / Cancel, "Other"+empty inline error fires, preset submit without details succeeds, success banner appears with mode-specific copy + deep-link to /leads/{id}, timeline updates after success with both CLIENT_REVERTED rows visible.
+    - 0 critical issues, 0 minor issues.
+
 **Phase 14.1: AGENT lead self-assignment guard** — COMPLETE (2026-05-21)
   - **One-line workflow correction**. When an AGENT creates a lead and leaves `assignedAgentId` empty (the form doesn't even show the agent picker for non-admins), the new lead used to land unassigned → immediately disappear from the creating agent's workspace because AGENT visibility scopes on `assignedAgentId === self`.
   - **Fix**: in `backend/src/controllers/lead.controller.ts:addLead`, before calling the service, if `req.user.role === 'AGENT'` AND `assignedAgentId` is empty/null, set it to `req.user.id`. Single source of truth; frontend untouched.
