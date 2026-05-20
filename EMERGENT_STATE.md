@@ -52,6 +52,18 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 14.1: AGENT lead self-assignment guard** — COMPLETE (2026-05-21)
+  - **One-line workflow correction**. When an AGENT creates a lead and leaves `assignedAgentId` empty (the form doesn't even show the agent picker for non-admins), the new lead used to land unassigned → immediately disappear from the creating agent's workspace because AGENT visibility scopes on `assignedAgentId === self`.
+  - **Fix**: in `backend/src/controllers/lead.controller.ts:addLead`, before calling the service, if `req.user.role === 'AGENT'` AND `assignedAgentId` is empty/null, set it to `req.user.id`. Single source of truth; frontend untouched.
+  - **Preserved**:
+    - ADMIN / SUPER_ADMIN can still create unassigned leads (default behaviour unchanged) and can still assign any agent manually.
+    - If the request already carries an `assignedAgentId` (e.g. an agent self-selecting via API), it is honoured verbatim.
+    - CSV import (`POST /api/leads/import`) is ADMIN-only and routes through `csv.controller.ts` / `csv.service.ts`, not `addLead` — completely untouched.
+    - Lead-assignment endpoint (`PATCH /api/leads/:id/assign`) — untouched.
+    - Existing RBAC, analytics, lead-list scoping — untouched.
+  - **Files modified (1)**: `backend/src/controllers/lead.controller.ts` only.
+  - **Verified (curl, 7/7)**: AGENT POST `/api/leads` with no assignedAgentId → row stored with assignedAgentId=self (✓); with explicit null → still self (✓); with explicit self ID → preserved (✓); ADMIN POST without assignedAgentId → null preserved (✓); SUPER_ADMIN POST without assignedAgentId → null preserved (✓); SUPER_ADMIN assigning a specific AGENT → honoured (✓); AGENT GET `/api/leads` immediately surfaces the freshly-created leads (✓).
+
 **Phase 14.0: SUPER_ADMIN role + 3-tier RBAC hierarchy** — COMPLETE (2026-05-21)
   - **Scope**: Introduces a third role tier on top of the existing ADMIN/AGENT model: `SUPER_ADMIN > ADMIN > AGENT`. Pure additive RBAC enhancement — no architecture change, no auth-flow change, no user-management UX rewrite. Every existing `requireRole('ADMIN')` callsite continues to work unchanged because SUPER_ADMIN implicitly satisfies ADMIN-level role checks at the middleware layer.
   - **Role hierarchy** (enforced at middleware + service + UI layers):

@@ -45,7 +45,17 @@ export async function addLead(req: Request, res: Response): Promise<void> {
     return;
   }
   try {
-    const lead = await leadService.createLead(req.body);
+    // Workflow safety: when an AGENT creates a lead without specifying an
+    // assigned agent, default to themselves. Without this, the new lead
+    // lands unassigned and immediately disappears from the agent's own
+    // workspace because RBAC scopes AGENT to `assignedAgentId === self`.
+    // ADMIN / SUPER_ADMIN can still create unassigned leads or assign
+    // anyone manually — their flow is untouched.
+    const payload = { ...req.body };
+    if (req.user!.role === 'AGENT' && !payload.assignedAgentId) {
+      payload.assignedAgentId = req.user!.id;
+    }
+    const lead = await leadService.createLead(payload);
     res.status(201).json(lead);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Failed to create lead';
