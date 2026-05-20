@@ -885,7 +885,7 @@ JWT_SECRET=de45b3e0ad171b94d92263e40f26801ea167ef8e4154fbb31f3f0170056ed9bb
 JWT_EXPIRES_IN=7d
 PORT=8002
 NODE_ENV=development
-FRONTEND_URL=https://pdf-chart-bug.preview.emergentagent.com
+FRONTEND_URL=https://super-admin-roles-1.preview.emergentagent.com
 ADMIN_EMAIL=admin@realestate.com
 ADMIN_PASSWORD=Admin@2036
 ```
@@ -893,8 +893,8 @@ ADMIN_PASSWORD=Admin@2036
 ### Frontend (`/app/frontend/.env`)
 
 ```env
-REACT_APP_BACKEND_URL=https://pdf-chart-bug.preview.emergentagent.com
-VITE_BACKEND_URL=https://pdf-chart-bug.preview.emergentagent.com
+REACT_APP_BACKEND_URL=https://super-admin-roles-1.preview.emergentagent.com
+VITE_BACKEND_URL=https://super-admin-roles-1.preview.emergentagent.com
 ```
 
 ---

@@ -20,7 +20,7 @@ import requests
 from datetime import datetime
 
 BASE = (os.environ.get("REACT_APP_BACKEND_URL")
-        or "https://pdf-chart-bug.preview.emergentagent.com").rstrip("/")
+        or "https://super-admin-roles-1.preview.emergentagent.com").rstrip("/")
 API = f"{BASE}/api"
 
 ADMIN = {"email": "admin@realestate.com", "password": "Admin@2036"}
