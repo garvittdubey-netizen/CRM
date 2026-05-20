@@ -13,6 +13,7 @@ import {
   MessageSquare,
   PlusCircle,
   CheckCircle2,
+  RotateCcw,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/leads/StatusBadge';
 import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { ClientActivityTimeline } from '@/components/clients/ClientActivityTimeline';
+import { ReactivateLeadModal } from '@/components/clients/ReactivateLeadModal';
 import { DealFormModal } from '@/components/deals/DealFormModal';
 import { clientsApi } from '@/services/clients';
 import { dealsApi } from '@/services/deals';
@@ -50,6 +52,11 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [dealOpen, setDealOpen] = useState(false);
+  const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [reactivatedBanner, setReactivatedBanner] = useState<null | {
+    mode: 'RESTORED' | 'CREATED';
+    leadId: string;
+  }>(null);
   // Existing deals for this client. Surface (a) the count next to the CTA
   // and (b) a compact list in the right sidebar so the page is the source
   // of truth for the client→deal relationship.
@@ -177,6 +184,16 @@ export default function ClientDetailPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setReactivateOpen(true)}
+              data-testid="reactivate-lead-button"
+              className="text-primary hover:text-primary"
+              title="Reactivate this client back into active lead nurturing"
+            >
+              <RotateCcw size={13} className="mr-1.5" /> Reactivate Lead
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setEditOpen(true)}
               data-testid="edit-client-button"
             >
@@ -228,6 +245,46 @@ export default function ClientDetailPage() {
           </button>
         </div>
       )}
+
+      {/* Reactivation success banner — shows mode + link to the (re-opened
+          or freshly created) lead. Mirrors the conversion banner pattern. */}
+      {reactivatedBanner && (
+        <div
+          className="flex items-start gap-3 p-3.5 rounded-md border border-primary/30 bg-primary/5 text-sm"
+          data-testid="reactivation-success-banner"
+        >
+          <RotateCcw
+            size={16}
+            className="text-primary shrink-0 mt-0.5"
+          />
+          <div className="flex-1">
+            <p className="font-medium text-foreground">
+              {reactivatedBanner.mode === 'RESTORED'
+                ? 'Linked lead reopened — back in active nurturing.'
+                : 'New lead created from client data — ready for follow-up.'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              <Link
+                to={`/leads/${reactivatedBanner.leadId}`}
+                className="text-primary font-medium hover:underline"
+                data-testid="reactivation-open-lead-link"
+              >
+                Open the lead →
+              </Link>
+              {'  '}or continue here to keep editing the client.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReactivatedBanner(null)}
+            className="text-primary hover:text-foreground text-xs"
+            data-testid="dismiss-reactivation-banner"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
         {/* Left column: profile + timeline */}
@@ -447,6 +504,23 @@ export default function ClientDetailPage() {
           fetchDeals();
           fetchTimeline();
           navigate(`/deals/${saved.id}`);
+        }}
+      />
+
+      {/* Reactivate-lead modal. Captures a structured reason, then calls
+          POST /api/clients/:id/reactivate. The backend either flips the
+          linked lead's status back to NEW (RESTORED) or synthesises a new
+          lead from client data (CREATED). The success banner deep-links to
+          the lead so the user can resume nurturing immediately. */}
+      <ReactivateLeadModal
+        open={reactivateOpen}
+        client={client}
+        onClose={() => setReactivateOpen(false)}
+        onSuccess={(result) => {
+          setReactivateOpen(false);
+          setReactivatedBanner(result);
+          fetchClient();
+          fetchTimeline();
         }}
       />
     </div>

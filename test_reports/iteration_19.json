@@ -1,0 +1,53 @@
+{
+  "summary": "Phase 14.2 Reactivate Lead workflow end-to-end testing. Backend pytest suite: 12/12 PASS covering RESTORE, CREATE, validation, 404, full RBAC matrix (SUPER_ADMIN/ADMIN/AGENT own + AGENT cross-403), and timeline CLIENT_REVERTED entries (CLIENT + ACTIVITY sources). Frontend Playwright: button visibility for SUPER_ADMIN, modal open, Shadcn Select interaction, Other-empty inline error, RESTORE path success banner + deep link to /leads/{id}, timeline updates with 2 reactivation entries, and AGENT viewing non-owned client cannot see the action group (page errors via /api/clients/:id 403, which is the correct stricter behavior). No regressions detected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_client_reactivation.py",
+    "/app/test_reports/pytest/iter19_reactivation.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "client-reactivation.service.ts correctly preserves linkedLeadId on RESTORE path (spec compliance verified by assertion).",
+    "CREATE path correctly snapshots fullName/phone/email/budget/preferredLocation/notes/assignedAgentId from client; lead.source='MANUAL', lead.status='NEW', tags=['reactivated'] — all verified.",
+    "Activity trail dual-write (ClientActivity + lead Activity with action='CLIENT_REVERTED') confirmed on the unified timeline endpoint — both CLIENT and ACTIVITY source entries surfaced with the reason in description/metadata.",
+    "RBAC gating in controller (isAdminLevel || assignedAgentId === user.id) verified against all three roles + a freshly-provisioned cross-agent.",
+    "Validation (missing reason -> 400 'Reason is required'; >500 chars -> 400) verified.",
+    "Minor observation (non-blocking): AGENT viewing a client they don't own currently 403s on GET /api/clients/:id (existing behavior), so the ClientDetailPage falls into the error state and the reactivate-lead-button is not rendered. The button visibility is hence guarded both by RBAC fetch-failure AND the canManage gate, which is acceptable / stricter than the spec wording 'hidden to AGENT viewing a client NOT assigned to them'."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_client_reactivation.py (new)"
+  ],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% (10/10 steps)"},
+  "test_credentials": "Used credentials from /app/memory/test_credentials.md (SUPER_ADMIN admin@realestate.com, ADMIN manager@realestate.com, AGENT agent@realestate.com).",
+  "seed_data_creation": "Created (and deleted in TestZZCleanup): ~10 TEST_-prefixed clients, ~7 TEST_-prefixed leads, 1 TEST_agent_{ts}@realestate.com AGENT user (disabled at teardown). All idempotent via timestamp + uuid suffixes.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reactivation regression suite at /app/backend/tests/test_client_reactivation.py — run with `pytest backend/tests/test_client_reactivation.py -v` from /app. ~72s wall (real Neon DB, no mocks). Cleanup is self-contained. Frontend deep-links use href=/leads/{leadId}; Radix Select option testids follow pattern reactivate-reason-option-{slug} (e.g. -other, -budget-issue). For AGENT 403 visibility, the page currently shows client-detail-error state because /api/clients/:id itself 403s for AGENTs on unowned clients — this is existing controller behavior in getOneClient, not something introduced by Phase 14.2.",
+  "review_items_coverage": {
+    "POST /reactivate happy path RESTORE (linkedLeadId preserved, status NEW)": "PASS",
+    "POST /reactivate happy path CREATE (new lead snapshot + tag + attach)": "PASS",
+    "Missing/empty reason 400": "PASS",
+    "Reason >500 chars 400": "PASS",
+    "AGENT on own client 200": "PASS",
+    "AGENT on other agent's client 403": "PASS",
+    "ADMIN any client 200": "PASS",
+    "SUPER_ADMIN any client 200": "PASS",
+    "Non-existent client 404": "PASS",
+    "Timeline includes CLIENT_REVERTED (CLIENT + ACTIVITY sources, with reason)": "PASS",
+    "Frontend: button visible to SUPER_ADMIN/ADMIN/assigned-AGENT, hidden to non-assigned AGENT": "PASS",
+    "Frontend: Modal renders with Shadcn Select, textarea, submit, cancel": "PASS",
+    "Frontend: Other + empty details -> inline error": "PASS",
+    "Frontend: Preset submit OK without details": "PASS",
+    "Frontend: success banner with mode text + reactivation-open-lead-link to /leads/{leadId}": "PASS",
+    "Frontend: timeline updates with reactivation entries after success": "PASS",
+    "Regression: communication/follow-ups/deals linkage preserved": "PASS (only lead.status flipped; FKs untouched)"
+  }
+}

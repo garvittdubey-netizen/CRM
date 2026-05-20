@@ -8,6 +8,7 @@ import {
   removeClient,
   assignClient,
   getClientTimeline,
+  reactivateClientHandler,
 } from '../controllers/client.controller';
 
 export const clientRouter = Router();
@@ -19,3 +20,4 @@ clientRouter.put('/:id', authenticate, editClient);
 clientRouter.delete('/:id', authenticate, removeClient);
 clientRouter.patch('/:id/assign', authenticate, requireRole('ADMIN'), assignClient);
 clientRouter.get('/:id/timeline', authenticate, getClientTimeline);
+clientRouter.post('/:id/reactivate', authenticate, reactivateClientHandler);

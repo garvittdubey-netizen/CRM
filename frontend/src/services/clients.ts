@@ -36,4 +36,20 @@ export const clientsApi = {
 
   timeline: (id: string) =>
     api.get<{ items: ClientTimelineItem[] }>(`/api/clients/${id}/timeline`).then((r) => r.data.items),
+
+  reactivate: (id: string, reason: string) =>
+    api
+      .post<{
+        client: Client;
+        lead: {
+          id: string;
+          fullName: string;
+          status: string;
+          phone: string | null;
+          email: string | null;
+          assignedAgentId: string | null;
+        };
+        mode: 'RESTORED' | 'CREATED';
+      }>(`/api/clients/${id}/reactivate`, { reason })
+      .then((r) => r.data),
 };

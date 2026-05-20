@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as clientService from '../services/client.service';
 import { buildClientTimeline } from '../services/client-timeline.service';
+import { reactivateClient } from '../services/client-reactivation.service';
 import { isAdminLevel } from '../lib/roles';
 
 export async function listClients(req: Request, res: Response): Promise<void> {
@@ -247,3 +248,59 @@ export async function getClientTimeline(req: Request, res: Response): Promise<vo
     res.status(500).json({ error: 'Failed to load timeline' });
   }
 }
+
+/**
+ * Reactivate-lead workflow.
+ *
+ * RBAC: SUPER_ADMIN, ADMIN, or the AGENT currently assigned to the client.
+ * Body: { reason: string (required) }.
+ *
+ * Behaviour delegated to `client-reactivation.service`:
+ *   - if client.linkedLeadId exists → flip that lead's status to NEW.
+ *   - else                          → create a new lead prefilled from the
+ *                                     client data and attach it as
+ *                                     client.linkedLeadId.
+ *   - logs ClientActivity (CLIENT_REVERTED) + lead Activity (CLIENT_REVERTED).
+ */
+export async function reactivateClientHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason) {
+      res.status(400).json({ error: 'Reason is required' });
+      return;
+    }
+    if (reason.length > 500) {
+      res.status(400).json({ error: 'Reason must be 500 characters or fewer' });
+      return;
+    }
+
+    const existing = await clientService.getClientById(req.params.id);
+    if (!existing) {
+      res.status(404).json({ error: 'Client not found' });
+      return;
+    }
+    if (!isAdminLevel(req.user!.role) && existing.assignedAgentId !== req.user!.id) {
+      res
+        .status(403)
+        .json({ error: 'You can only reactivate clients assigned to you' });
+      return;
+    }
+
+    const result = await reactivateClient({
+      clientId: req.params.id,
+      reason,
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+    });
+    res.json(result);
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string };
+    if (err.code === 'NOT_FOUND') {
+      res.status(404).json({ error: err.message || 'Client not found' });
+      return;
+    }
+    console.error('reactivateClientHandler:', e);
+    res.status(500).json({ error: err.message || 'Failed to reactivate client' });
+  }
+}
+

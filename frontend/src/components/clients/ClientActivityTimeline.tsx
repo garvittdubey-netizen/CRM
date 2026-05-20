@@ -11,6 +11,7 @@ import {
   PencilLine,
   FileText,
   Wallet,
+  RotateCcw,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,6 +35,7 @@ const SOURCE_CLASS: Record<ClientTimelineSource, string> = {
 
 /** Picks a specific icon for known CLIENT-source actions so the timeline reads naturally. */
 function iconFor(item: ClientTimelineItem): React.ElementType {
+  if (item.source === 'ACTIVITY' && item.action === 'CLIENT_REVERTED') return RotateCcw;
   if (item.source !== 'CLIENT') return SOURCE_ICON[item.source];
   switch (item.action) {
     case 'CREATED':
@@ -50,6 +52,8 @@ function iconFor(item: ClientTimelineItem): React.ElementType {
       return UserMinus;
     case 'NOTES_UPDATED':
       return FileText;
+    case 'CLIENT_REVERTED':
+      return RotateCcw;
     default:
       return CircleUserRound;
   }
