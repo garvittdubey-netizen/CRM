@@ -260,15 +260,115 @@ export default function ReportsPage() {
         onExport={() => exportSection('agents')}
       />
 
-      {/* Print CSS — collapses chrome to just the report contents. */}
+      {/* Print CSS — collapses chrome to just the report contents.
+         *
+         * The bug we're solving: MainLayout uses `h-screen overflow-hidden`
+         * and its <main> uses `overflow-y-auto`, so a naive `window.print()`
+         * only captures what's visible in the viewport — everything below
+         * the fold is clipped. We solve this in two passes:
+         *
+         *   1. Unclamp every ancestor of #reports-printable so the document
+         *      height grows to fit ALL sections (height:auto + overflow:visible).
+         *   2. Add semantic page-break rules so each section stays whole
+         *      and the longer ones (Deals + Agents) start on a fresh page.
+         *
+         * `print-color-adjust: exact` keeps the chart colours and pill
+         * accents intact — by default browsers strip backgrounds to save ink. */}
       <style>{`
         @media print {
-          aside, header, nav, [data-testid="navbar"], [data-testid="sidebar"], [data-testid="mobile-menu-button"] {
+          @page { size: A4; margin: 12mm; }
+
+          /* 1. Unclamp the entire layout chain so the printed canvas
+                grows to the full document height. */
+          html, body, #root,
+          [data-testid="main-layout"],
+          [data-testid="main-content"],
+          [data-testid="main-layout"] > div {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            display: block !important;
+            background: white !important;
+          }
+
+          /* 2. Hide the chrome (navbar, sidebars, mobile drawer, filter card,
+                print/csv buttons, anything marked print:hidden). */
+          [data-testid="navbar"],
+          [data-testid="sidebar"],
+          [data-testid="mobile-sidebar"],
+          [data-testid="mobile-menu-button"],
+          [data-testid="reports-filters"],
+          .print\\:hidden {
             display: none !important;
           }
-          body, html { background: white !important; }
-          .print\\:hidden { display: none !important; }
-          #reports-printable { padding: 0 !important; }
+
+          /* 3. Make sure the printable surface itself is unclamped too. */
+          #reports-printable {
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+            color: #000 !important;
+          }
+
+          /* 4. Page-break rules — keep each section together, and force
+                Deals and Agents onto fresh pages because they have wide
+                tables / a 12-month chart that don't tolerate being sliced. */
+          #reports-printable section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 16px;
+          }
+          [data-testid="report-deals-section"],
+          [data-testid="report-agents-section"] {
+            break-before: page;
+            page-break-before: always;
+          }
+          /* Don't let card bodies clip — cards in the live UI may use
+             overflow:hidden for rounded corners. */
+          #reports-printable .overflow-hidden,
+          #reports-printable .overflow-x-auto,
+          #reports-printable .overflow-y-auto {
+            overflow: visible !important;
+          }
+          /* Tables — keep header on each page; never break a row. */
+          #reports-printable thead { display: table-header-group; }
+          #reports-printable tr, #reports-printable img, #reports-printable svg {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          /* 5. Chart sizing — Recharts ResponsiveContainer measures its
+                parent's width on render. In print mode the flex parents
+                collapse, so we pin every chart container to a sane print
+                width and force the inner SVG to fill it. */
+          #reports-printable .recharts-responsive-container {
+            width: 100% !important;
+            min-width: 280px !important;
+          }
+          #reports-printable .recharts-wrapper,
+          #reports-printable .recharts-surface {
+            width: 100% !important;
+          }
+
+          /* 6. Honour our chart palette and stat-card backgrounds in print. */
+          *, *::before, *::after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* 7. Page title — render once at the very top so the PDF identifies
+                what it is. The h1 already exists in markup but lives inside
+                a print:hidden header row; we re-show it via this rule. */
+          #reports-printable::before {
+            content: "Real Estate CRM — Reports";
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #ddd;
+          }
         }
       `}</style>
     </div>
