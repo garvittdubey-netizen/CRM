@@ -89,6 +89,8 @@ export async function listDeals(req: Request, res: Response): Promise<void> {
       search: req.query.search as string | undefined,
       status: req.query.status as string | undefined,
       assignedAgentId: req.query.assignedAgentId as string | undefined,
+      propertyId: req.query.propertyId as string | undefined,
+      clientId: req.query.clientId as string | undefined,
       sortBy: req.query.sortBy as string | undefined,
       sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
       userId: req.user!.id,

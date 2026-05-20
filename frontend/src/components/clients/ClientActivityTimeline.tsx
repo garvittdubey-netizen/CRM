@@ -10,6 +10,7 @@ import {
   UserMinus,
   PencilLine,
   FileText,
+  Wallet,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +21,7 @@ const SOURCE_ICON: Record<ClientTimelineSource, React.ElementType> = {
   COMMUNICATION: MessageSquare,
   FOLLOWUP: CalendarClock,
   ACTIVITY: ActivityIcon,
+  DEAL: Wallet,
 };
 
 const SOURCE_CLASS: Record<ClientTimelineSource, string> = {
@@ -27,6 +29,7 @@ const SOURCE_CLASS: Record<ClientTimelineSource, string> = {
   COMMUNICATION: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
   FOLLOWUP: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   ACTIVITY: 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
+  DEAL: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
 };
 
 /** Picks a specific icon for known CLIENT-source actions so the timeline reads naturally. */

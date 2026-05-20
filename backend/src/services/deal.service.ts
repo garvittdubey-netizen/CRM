@@ -44,6 +44,12 @@ export interface DealListParams {
   search?: string;
   status?: string;
   assignedAgentId?: string;
+  /** Filter by linked property — used by the Property detail page to show
+   *  the count of deals attached to a given property. Additive, optional. */
+  propertyId?: string;
+  /** Filter by linked client — used by the Client detail page to show the
+   *  client's existing deals. Additive, optional. */
+  clientId?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   userId: string;
@@ -57,6 +63,8 @@ export async function listDeals(opts: DealListParams) {
     search,
     status,
     assignedAgentId,
+    propertyId,
+    clientId,
     sortBy = 'createdAt',
     sortOrder = 'desc',
     userId,
@@ -81,6 +89,8 @@ export async function listDeals(opts: DealListParams) {
 
   if (status && status !== 'ALL') where.status = status as DealStatus;
   if (assignedAgentId && assignedAgentId !== 'ALL') where.assignedAgentId = assignedAgentId;
+  if (propertyId) where.propertyId = propertyId;
+  if (clientId) where.clientId = clientId;
 
   const validSortFields = ['title', 'amount', 'createdAt', 'updatedAt', 'expectedClosingDate'];
   const orderField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';

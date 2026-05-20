@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Pencil,
@@ -11,6 +11,8 @@ import {
   UserCircle,
   Wallet,
   MessageSquare,
+  PlusCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,10 +20,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/leads/StatusBadge';
 import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { ClientActivityTimeline } from '@/components/clients/ClientActivityTimeline';
+import { DealFormModal } from '@/components/deals/DealFormModal';
 import { clientsApi } from '@/services/clients';
+import { dealsApi } from '@/services/deals';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
-import type { Client, ClientTimelineItem } from '@/types';
+import type { Client, ClientTimelineItem, Deal } from '@/types';
 
 function formatBudget(value: number | null): string {
   if (value == null) return '—';
@@ -34,12 +38,22 @@ export default function ClientDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Banner shown right after a lead → client conversion. The
+  // `?converted=1` flag is set by LeadDetailPage's onSuccess redirect.
+  const justConverted = searchParams.get('converted') === '1';
 
   const [client, setClient] = useState<Client | null>(null);
   const [timeline, setTimeline] = useState<ClientTimelineItem[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
+  const [dealOpen, setDealOpen] = useState(false);
+  // Existing deals for this client. Surface (a) the count next to the CTA
+  // and (b) a compact list in the right sidebar so the page is the source
+  // of truth for the client→deal relationship.
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [dealsLoading, setDealsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const isAdmin = user?.role === 'ADMIN';
@@ -69,10 +83,23 @@ export default function ClientDetailPage() {
     }
   }, [id]);
 
+  const fetchDeals = useCallback(async () => {
+    setDealsLoading(true);
+    try {
+      const r = await dealsApi.list({ clientId: id, limit: 25 });
+      setDeals(r.deals);
+    } catch {
+      setDeals([]);
+    } finally {
+      setDealsLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     fetchClient();
     fetchTimeline();
-  }, [fetchClient, fetchTimeline]);
+    fetchDeals();
+  }, [fetchClient, fetchTimeline, fetchDeals]);
 
   const handleDelete = async () => {
     if (!client) return;
@@ -114,7 +141,24 @@ export default function ClientDetailPage() {
           <ArrowLeft size={14} className="mr-1.5" /> Back
         </Button>
         {canManage && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* Client → Deal conversion. Visible to ADMIN + assigned agent.
+                The DealFormModal opens with client + agent pre-locked, so
+                the user only chooses property + amount + closing date. */}
+            <Button
+              size="sm"
+              onClick={() => setDealOpen(true)}
+              data-testid="create-deal-button"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <PlusCircle size={13} className="mr-1.5" />
+              Create Deal
+              {deals.length > 0 && (
+                <span className="ml-1.5 text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">
+                  {deals.length}
+                </span>
+              )}
+            </Button>
             {client.phone && (
               <Button
                 variant="outline"
@@ -149,6 +193,40 @@ export default function ClientDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Conversion success banner — dismissable, surfaces once per redirect */}
+      {justConverted && (
+        <div
+          className="flex items-start gap-3 p-3.5 rounded-md border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-sm"
+          data-testid="conversion-success-banner"
+        >
+          <CheckCircle2
+            size={16}
+            className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"
+          />
+          <div className="flex-1">
+            <p className="font-medium text-emerald-800 dark:text-emerald-200">
+              Lead converted to client successfully.
+            </p>
+            <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+              The unified timeline below shows every interaction from the original lead onwards.
+              Ready to move ahead? Click <span className="font-medium">Create Deal</span> to lock
+              in the property and amount.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              searchParams.delete('converted');
+              setSearchParams(searchParams, { replace: true });
+            }}
+            className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 text-xs"
+            data-testid="dismiss-conversion-banner"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
         {/* Left column: profile + timeline */}
@@ -281,6 +359,62 @@ export default function ClientDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Deals attached to this client — count + compact list. Source of
+              truth for the client→deal relationship. Clicking a row opens
+              the deal detail page. */}
+          <Card data-testid="client-deals-card">
+            <CardContent className="p-4 space-y-3">
+              <h3 className="font-semibold text-sm flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Wallet size={13} /> Deals
+                </span>
+                <span
+                  className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full"
+                  data-testid="client-deals-count"
+                >
+                  {dealsLoading ? '…' : deals.length}
+                </span>
+              </h3>
+              {dealsLoading ? (
+                <p className="text-xs text-muted-foreground">Loading…</p>
+              ) : deals.length === 0 ? (
+                <p
+                  className="text-xs text-muted-foreground italic"
+                  data-testid="client-deals-empty"
+                >
+                  No deals yet. Click "Create Deal" to start one.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {deals.slice(0, 5).map((d) => (
+                    <li key={d.id}>
+                      <Link
+                        to={`/deals/${d.id}`}
+                        data-testid={`client-deal-row-${d.id}`}
+                        className="flex items-center justify-between gap-2 rounded border p-2 hover:border-primary/40 hover:bg-accent/40 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{d.title}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {d.property?.title ?? '—'}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-medium text-primary whitespace-nowrap">
+                          {d.status}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                  {deals.length > 5 && (
+                    <li className="text-[10px] text-muted-foreground text-center pt-1">
+                      +{deals.length - 5} more
+                    </li>
+                  )}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </aside>
       </div>
 
@@ -292,6 +426,26 @@ export default function ClientDetailPage() {
           fetchClient();
           fetchTimeline();
           setEditOpen(false);
+        }}
+      />
+
+      {/* Client → Deal conversion modal. Client is locked from the page
+          context so users only pick property / amount / closing date. */}
+      <DealFormModal
+        open={dealOpen}
+        title={`Create deal for ${client.fullName}`}
+        prefill={{
+          clientId: client.id,
+          assignedAgentId: client.assignedAgentId ?? null,
+          title: `${client.fullName} — `,
+        }}
+        lockClient={{ id: client.id, fullName: client.fullName }}
+        onClose={() => setDealOpen(false)}
+        onSuccess={(saved) => {
+          setDealOpen(false);
+          fetchDeals();
+          fetchTimeline();
+          navigate(`/deals/${saved.id}`);
         }}
       />
     </div>

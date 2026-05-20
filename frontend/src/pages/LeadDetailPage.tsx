@@ -14,6 +14,9 @@ import {
   Calendar,
   MessageSquare,
   PhoneCall,
+  UserPlus,
+  ArrowRight,
+  CheckCircle2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,12 +25,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/leads/StatusBadge';
 import { LeadFormModal } from '@/components/leads/LeadFormModal';
+import { ClientFormModal } from '@/components/clients/ClientFormModal';
 import { leadsApi } from '@/services/leads';
+import { clientsApi } from '@/services/clients';
 import { extractApiError } from '@/services/api';
 import { LeadTimeline } from '@/components/followups/LeadTimeline';
 import { CommunicationTimeline } from '@/components/communications/CommunicationTimeline';
 import { CallLogModal } from '@/components/communications/CallLogModal';
-import type { Lead } from '@/types';
+import type { Lead, Client } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 
 function formatBudget(budget: number | null): string {
@@ -54,6 +59,16 @@ export default function LeadDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
+  // Lead → Client conversion state. `existingClient` is the already-converted
+  // client (if any) discovered via /api/clients?linkedLeadId=:id. We use this
+  // to (a) disable the Convert button when a conversion has already happened,
+  // and (b) give the user a one-click path to the resulting client page.
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [existingClient, setExistingClient] = useState<Client | null>(null);
+  const [conversionLoading, setConversionLoading] = useState(true);
+  // Notes-edit error string. Was previously read but never declared which
+  // produced a `setNotesError is not defined` runtime error in handleSaveNotes.
+  const [notesError, setNotesError] = useState('');
 
   // Notes state
   const [editingNotes, setEditingNotes] = useState(false);
@@ -76,6 +91,29 @@ export default function LeadDetailPage() {
 
   useEffect(() => {
     fetchLead();
+  }, [id]);
+
+  // Check whether this lead has already been converted to a client.
+  // Used to prevent duplicate conversions and surface a "Open client →"
+  // shortcut on the header.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setConversionLoading(true);
+    clientsApi
+      .list({ linkedLeadId: id, limit: 1 })
+      .then((r) => {
+        if (!cancelled) setExistingClient(r.clients[0] ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setExistingClient(null);
+      })
+      .finally(() => {
+        if (!cancelled) setConversionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const handleSaveNotes = async () => {
@@ -158,6 +196,37 @@ export default function LeadDetailPage() {
             <MessageSquare size={13} className="mr-1.5" />
             Message
           </Button>
+          {/* Lead → Client conversion. Visible to ADMIN + the assigned agent
+              (same canEdit rule used for Edit/Notes). When a client already
+              exists for this lead, the button morphs into a deep-link to
+              that client to prevent duplicate conversions. */}
+          {canEdit && !conversionLoading && (
+            existingClient ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/clients/${existingClient.id}`)}
+                data-testid="open-converted-client-button"
+                className="text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                title="This lead has already been converted to a client"
+              >
+                <CheckCircle2 size={13} className="mr-1.5" />
+                Open client
+                <ArrowRight size={12} className="ml-1" />
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConvertOpen(true)}
+                data-testid="convert-to-client-button"
+                className="border-primary/30 text-primary hover:bg-primary/5"
+              >
+                <UserPlus size={13} className="mr-1.5" />
+                Convert to Client
+              </Button>
+            )
+          )}
           {canEdit && (
             <Button
               variant="outline"
@@ -408,6 +477,30 @@ export default function LeadDetailPage() {
         onClose={() => setCallLogOpen(false)}
         lead={{ id: lead.id, fullName: lead.fullName, phone: lead.phone }}
         onSuccess={() => setCallLogOpen(false)}
+      />
+
+      {/* Lead → Client conversion modal. Pre-fills every transferable field
+          from the lead so the user only has to confirm. The created client
+          carries linkedLeadId for the unified timeline + duplicate-guard. */}
+      <ClientFormModal
+        open={convertOpen}
+        title={`Convert lead "${lead.fullName}" to client`}
+        prefill={{
+          fullName: lead.fullName,
+          phone: lead.phone ?? '',
+          email: lead.email ?? '',
+          notes: lead.notes ?? '',
+          budget: lead.budget ?? undefined,
+          preferredLocation: lead.preferredLocation ?? '',
+          linkedLeadId: lead.id,
+          assignedAgentId: lead.assignedAgentId,
+        }}
+        onClose={() => setConvertOpen(false)}
+        onSuccess={(created) => {
+          setExistingClient(created);
+          setConvertOpen(false);
+          navigate(`/clients/${created.id}?converted=1`);
+        }}
       />
     </div>
   );

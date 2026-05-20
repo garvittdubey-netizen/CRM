@@ -27,8 +27,14 @@ import type { Client, CreateClientData, Lead } from '@/types';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (created: Client) => void;
   client?: Client | null;
+  /** Initial values for a NEW client. Ignored when editing (`client` is set).
+   *  Used by the Lead → Client conversion flow to prefill name/phone/email/
+   *  notes/agent/budget/preferredLocation/linkedLeadId. */
+  prefill?: Partial<CreateClientData> | null;
+  /** Optional override for the dialog title — e.g. "Convert lead to client". */
+  title?: string;
 }
 
 const EMPTY: CreateClientData = {
@@ -42,7 +48,7 @@ const EMPTY: CreateClientData = {
   assignedAgentId: null,
 };
 
-export function ClientFormModal({ open, onClose, onSuccess, client }: Props) {
+export function ClientFormModal({ open, onClose, onSuccess, client, prefill, title }: Props) {
   const isEdit = !!client;
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
@@ -69,6 +75,10 @@ export function ClientFormModal({ open, onClose, onSuccess, client }: Props) {
         assignedAgentId: client.assignedAgentId,
       });
       setLeadQuery(client.linkedLead?.fullName ?? '');
+    } else if (prefill) {
+      // NEW client with prefilled values (e.g. lead-conversion flow).
+      setForm({ ...EMPTY, ...prefill });
+      setLeadQuery('');
     } else {
       setForm(EMPTY);
       setLeadQuery('');
@@ -76,7 +86,7 @@ export function ClientFormModal({ open, onClose, onSuccess, client }: Props) {
     if (isAdmin) {
       agentsApi.list().then(setAgents).catch(() => setAgents([]));
     }
-  }, [open, client, isAdmin]);
+  }, [open, client, isAdmin, prefill]);
 
   // Debounced lead search for the linkage dropdown.
   useEffect(() => {
@@ -108,9 +118,10 @@ export function ClientFormModal({ open, onClose, onSuccess, client }: Props) {
         linkedLeadId: form.linkedLeadId || null,
         assignedAgentId: form.assignedAgentId || null,
       };
-      if (isEdit) await clientsApi.update(client!.id, payload);
-      else await clientsApi.create(payload);
-      onSuccess();
+      const result = isEdit
+        ? await clientsApi.update(client!.id, payload)
+        : await clientsApi.create(payload);
+      onSuccess(result);
       onClose();
     } catch (e) {
       setError(extractApiError(e, 'Failed to save client. Please try again.'));
@@ -123,7 +134,7 @@ export function ClientFormModal({ open, onClose, onSuccess, client }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b">
-          <DialogTitle>{isEdit ? 'Edit Client' : 'Add New Client'}</DialogTitle>
+          <DialogTitle>{title ?? (isEdit ? 'Edit Client' : 'Add New Client')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">

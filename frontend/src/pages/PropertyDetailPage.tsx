@@ -11,6 +11,7 @@ import {
   CalendarDays,
   UserCircle,
   Send,
+  Wallet,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,10 +22,11 @@ import { PropertyFormModal } from '@/components/properties/PropertyFormModal';
 import { MatchingLeadsSidebar } from '@/components/properties/MatchingLeadsSidebar';
 import { SharePropertyWhatsAppModal } from '@/components/properties/SharePropertyWhatsAppModal';
 import { propertiesApi } from '@/services/properties';
+import { dealsApi } from '@/services/deals';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { formatPrice, formatArea } from '@/lib/property-format';
-import type { Property, MatchingLead } from '@/types';
+import type { Property, MatchingLead, Deal } from '@/types';
 
 export default function PropertyDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
@@ -34,6 +36,10 @@ export default function PropertyDetailPage() {
   const [property, setProperty] = useState<Property | null>(null);
   const [matchingLeads, setMatchingLeads] = useState<MatchingLead[]>([]);
   const [matchingLoading, setMatchingLoading] = useState(true);
+  // Deals attached to this property. Surfaces a small "linked deals" card
+  // in the right rail — closes the loop on the property→deal relationship.
+  const [linkedDeals, setLinkedDeals] = useState<Deal[]>([]);
+  const [linkedDealsLoading, setLinkedDealsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -68,10 +74,26 @@ export default function PropertyDetailPage() {
     }
   }, [id]);
 
+  // Fetch the deals attached to this property. Errors here never block the
+  // page render — the linked-deals card simply hides itself if the call
+  // fails. AGENT users see only deals assigned to them (backend RBAC).
+  const fetchLinkedDeals = useCallback(async () => {
+    setLinkedDealsLoading(true);
+    try {
+      const r = await dealsApi.list({ propertyId: id, limit: 25 });
+      setLinkedDeals(r.deals);
+    } catch {
+      setLinkedDeals([]);
+    } finally {
+      setLinkedDealsLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     fetchProperty();
     fetchMatchingLeads();
-  }, [fetchProperty, fetchMatchingLeads]);
+    fetchLinkedDeals();
+  }, [fetchProperty, fetchMatchingLeads, fetchLinkedDeals]);
 
   const handleDelete = async () => {
     if (!property) return;
@@ -237,6 +259,63 @@ export default function PropertyDetailPage() {
 
         <aside className="space-y-4">
           <MatchingLeadsSidebar leads={matchingLeads} loading={matchingLoading} />
+
+          {/* Linked deals — closes the property↔deal loop. The card hides
+              its content while loading but stays visible so its position
+              in the sidebar is predictable. */}
+          <Card data-testid="property-linked-deals-card">
+            <CardContent className="p-4 space-y-3">
+              <h3 className="font-semibold text-sm flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Wallet size={13} /> Linked Deals
+                </span>
+                <span
+                  className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full"
+                  data-testid="property-linked-deals-count"
+                >
+                  {linkedDealsLoading ? '…' : linkedDeals.length}
+                </span>
+              </h3>
+              {linkedDealsLoading ? (
+                <p className="text-xs text-muted-foreground">Loading…</p>
+              ) : linkedDeals.length === 0 ? (
+                <p
+                  className="text-xs text-muted-foreground italic"
+                  data-testid="property-linked-deals-empty"
+                >
+                  No deals attached to this property yet.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {linkedDeals.slice(0, 5).map((d) => (
+                    <li key={d.id}>
+                      <Link
+                        to={`/deals/${d.id}`}
+                        data-testid={`property-deal-row-${d.id}`}
+                        className="flex items-center justify-between gap-2 rounded border p-2 hover:border-primary/40 hover:bg-accent/40 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{d.title}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {d.client?.fullName ?? '—'}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-medium text-primary whitespace-nowrap">
+                          {d.status}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                  {linkedDeals.length > 5 && (
+                    <li className="text-[10px] text-muted-foreground text-center pt-1">
+                      +{linkedDeals.length - 5} more
+                    </li>
+                  )}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent className="p-4 text-xs text-muted-foreground space-y-1">
               <p>

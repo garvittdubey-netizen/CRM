@@ -412,7 +412,7 @@ export interface CreateClientData {
 
 export type UpdateClientData = Partial<CreateClientData>;
 
-export type ClientTimelineSource = 'CLIENT' | 'COMMUNICATION' | 'FOLLOWUP' | 'ACTIVITY';
+export type ClientTimelineSource = 'CLIENT' | 'COMMUNICATION' | 'FOLLOWUP' | 'ACTIVITY' | 'DEAL';
 
 export interface ClientTimelineItem {
   id: string;

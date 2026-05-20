@@ -15,7 +15,7 @@ import { prisma } from '../lib/prisma';
 export interface TimelineItem {
   id: string;
   /** Stable per-source prefix so a list React key never collides. */
-  source: 'CLIENT' | 'COMMUNICATION' | 'FOLLOWUP' | 'ACTIVITY';
+  source: 'CLIENT' | 'COMMUNICATION' | 'FOLLOWUP' | 'ACTIVITY' | 'DEAL';
   action: string;
   description: string;
   metadata?: Record<string, unknown> | null;
@@ -124,6 +124,33 @@ export async function buildClientTimeline(clientId: string): Promise<TimelineIte
         actor: a.user ? { id: a.user.id, name: a.user.name } : null,
       });
     }
+  }
+
+  // 5. Deals attached to this client — merges both the deal creation events
+  //    AND every status/agent/amount transition logged in DealActivity. This
+  //    is what closes the loop on the spec's unified timeline:
+  //      Lead activity → Client conversion → Deal creation → Deal status events.
+  const dealActs = await prisma.dealActivity.findMany({
+    where: { deal: { clientId: client.id } },
+    include: {
+      user: { select: AGENT_SELECT },
+      deal: { select: { id: true, title: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  });
+  for (const da of dealActs) {
+    items.push({
+      id: `deal:${da.id}`,
+      source: 'DEAL',
+      action: da.eventType,
+      description: da.notes
+        ? `Deal "${da.deal.title}" — ${da.notes}`
+        : `Deal "${da.deal.title}" — ${da.eventType.toLowerCase().replace(/_/g, ' ')}`,
+      metadata: { dealId: da.dealId },
+      createdAt: da.createdAt.toISOString(),
+      actor: da.user ? { id: da.user.id, name: da.user.name } : null,
+    });
   }
 
   // Merged + sorted newest-first; cap to 200 so the UI never blows up.

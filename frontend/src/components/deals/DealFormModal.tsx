@@ -35,8 +35,17 @@ import type {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (saved: Deal) => void;
   deal?: Deal | null;
+  /** Initial values for a NEW deal. Ignored when editing. Used by the
+   *  Client → Deal conversion flow to prefill the client (locked) +
+   *  assignedAgentId. */
+  prefill?: Partial<CreateDealData> | null;
+  /** When set on a NEW deal, the client picker is rendered read-only and
+   *  shows the locked client's name. Used by the Client → Deal flow so the
+   *  user can only change property / amount / closing date / status. */
+  lockClient?: { id: string; fullName: string } | null;
+  title?: string;
 }
 
 const EMPTY: CreateDealData = {
@@ -68,7 +77,15 @@ function toDateInput(iso: string | null | undefined): string {
   return iso.slice(0, 10);
 }
 
-export function DealFormModal({ open, onClose, onSuccess, deal }: Props) {
+export function DealFormModal({
+  open,
+  onClose,
+  onSuccess,
+  deal,
+  prefill,
+  lockClient,
+  title,
+}: Props) {
   const isEdit = !!deal;
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
@@ -99,6 +116,11 @@ export function DealFormModal({ open, onClose, onSuccess, deal }: Props) {
       });
       setPropertyQuery(deal.property?.title ?? '');
       setClientQuery(deal.client?.fullName ?? '');
+    } else if (prefill) {
+      // NEW deal pre-loaded by a conversion flow.
+      setForm({ ...EMPTY, ...prefill });
+      setClientQuery(lockClient?.fullName ?? '');
+      setPropertyQuery('');
     } else {
       setForm(EMPTY);
       setPropertyQuery('');
@@ -107,7 +129,7 @@ export function DealFormModal({ open, onClose, onSuccess, deal }: Props) {
     if (isAdmin) {
       agentsApi.list().then(setAgents).catch(() => setAgents([]));
     }
-  }, [open, deal, isAdmin]);
+  }, [open, deal, isAdmin, prefill, lockClient]);
 
   // Debounced property + client search (300 ms each)
   useEffect(() => {
@@ -150,9 +172,10 @@ export function DealFormModal({ open, onClose, onSuccess, deal }: Props) {
         expectedClosingDate: form.expectedClosingDate || null,
         notes: form.notes?.trim() || undefined,
       };
-      if (isEdit) await dealsApi.update(deal!.id, payload);
-      else await dealsApi.create(payload);
-      onSuccess();
+      const saved = isEdit
+        ? await dealsApi.update(deal!.id, payload)
+        : await dealsApi.create(payload);
+      onSuccess(saved);
       onClose();
     } catch (e) {
       setError(extractApiError(e, 'Failed to save deal. Please try again.'));
@@ -165,7 +188,7 @@ export function DealFormModal({ open, onClose, onSuccess, deal }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-6 pb-4 shrink-0 border-b">
-          <DialogTitle>{isEdit ? 'Edit Deal' : 'Add New Deal'}</DialogTitle>
+          <DialogTitle>{title ?? (isEdit ? 'Edit Deal' : 'Add New Deal')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
@@ -191,31 +214,43 @@ export function DealFormModal({ open, onClose, onSuccess, deal }: Props) {
             />
           </div>
 
-          {/* Client picker (searchable) */}
+          {/* Client picker (searchable) — read-only when lockClient is set */}
           <div className="space-y-1.5">
             <Label>
               Client <span className="text-destructive">*</span>
             </Label>
-            <Input
-              placeholder="Search clients..."
-              value={clientQuery}
-              onChange={(e) => setClientQuery(e.target.value)}
-              data-testid="deal-client-search"
-            />
-            <Select value={form.clientId || 'NONE'} onValueChange={(v) => set('clientId')(v === 'NONE' ? '' : v)}>
-              <SelectTrigger data-testid="deal-client-select">
-                <SelectValue placeholder="Select a client" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">Select a client</SelectItem>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.fullName}
-                    {c.phone ? ` · ${c.phone}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {lockClient && !isEdit ? (
+              <div
+                className="flex items-center gap-2 px-3 py-2 border rounded-md bg-muted/40 text-sm"
+                data-testid="deal-client-locked"
+              >
+                <span className="font-medium">{lockClient.fullName}</span>
+                <span className="text-xs text-muted-foreground ml-auto">locked from client page</span>
+              </div>
+            ) : (
+              <>
+                <Input
+                  placeholder="Search clients..."
+                  value={clientQuery}
+                  onChange={(e) => setClientQuery(e.target.value)}
+                  data-testid="deal-client-search"
+                />
+                <Select value={form.clientId || 'NONE'} onValueChange={(v) => set('clientId')(v === 'NONE' ? '' : v)}>
+                  <SelectTrigger data-testid="deal-client-select">
+                    <SelectValue placeholder="Select a client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">Select a client</SelectItem>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.fullName}
+                        {c.phone ? ` · ${c.phone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </div>
 
           {/* Property picker (searchable) */}

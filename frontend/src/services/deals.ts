@@ -13,6 +13,8 @@ export interface DealListParams {
   search?: string;
   status?: string;
   assignedAgentId?: string;
+  propertyId?: string;
+  clientId?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }

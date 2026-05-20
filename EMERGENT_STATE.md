@@ -52,6 +52,45 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 13.0: Cross-module workflow integration (Lead → Client → Deal → Reports)** — COMPLETE (2026-05-20)
+  - **Scope**: Stitches the four pre-existing modules into a single continuous CRM journey. Existing functionality (auth, leads, follow-ups, communications, whatsapp, analytics, csv, users, pipeline, properties, clients, deals, reports, notifications, settings) is **never rewritten** — every change is either purely additive or surface-level wiring through pre-existing primitives.
+  - **Backend changes (all additive, no migration, no architecture change)**:
+    - `services/deal.service.ts` + `controllers/deal.controller.ts` — `DealListParams` extended with optional `propertyId` and `clientId` filters; the listDeals where-clause now narrows by either when supplied. Used by the Property detail + Client detail pages to show their respective deal counts. RBAC inherited via the existing `buildDealScope` helper, so AGENT users still only see deals assigned to them.
+    - `services/client-timeline.service.ts` — added a 5th source (`DEAL`) to the merged feed. Pulls every `dealActivity` row whose deal belongs to this client (creation, status changes, agent re-assignment, amount changes) and renders them as timeline entries with descriptions like `Deal "{title}" — Status changed from NEW to WON`. The merged order is still strict newest-first; cap remains 200 items. `TimelineItem.source` union widened to include `'DEAL'`.
+  - **Frontend changes**:
+    - `types/index.ts` — `ClientTimelineSource` union extended with `'DEAL'`. `SendWhatsAppPayload`/`Property`/`Client`/etc untouched.
+    - `services/deals.ts` — `DealListParams` interface extended with optional `propertyId` and `clientId`. Callers without those fields are unaffected.
+    - `components/clients/ClientActivityTimeline.tsx` — added a DEAL row type to `SOURCE_ICON` (Wallet from lucide-react) and `SOURCE_CLASS` (blue palette).
+    - `components/clients/ClientFormModal.tsx` — added optional `prefill?: Partial<CreateClientData>` and `title?: string` props. When a NEW client is being created (no `client` prop) and `prefill` is set, the form loads those values instead of `EMPTY`. The `onSuccess` callback signature broadened from `() => void` to `(created: Client) => void` so the caller can immediately navigate to the freshly created entity. Existing callers that ignore the arg are TS-assignable and work unchanged.
+    - `components/deals/DealFormModal.tsx` — added optional `prefill?: Partial<CreateDealData>`, `lockClient?: { id, fullName }`, and `title?: string` props. When `lockClient` is set on a NEW deal, the client picker is rendered as a read-only "locked from client page" badge (`data-testid="deal-client-locked"`). `onSuccess` signature broadened to `(saved: Deal) => void`.
+    - `pages/LeadDetailPage.tsx`:
+      * NEW state: `convertOpen`, `existingClient`, `conversionLoading`. On mount, fires `clientsApi.list({ linkedLeadId: id, limit: 1 })` to detect whether a conversion has already happened.
+      * NEW header buttons: `convert-to-client-button` (visible to ADMIN + assigned agent when no existing client) OR `open-converted-client-button` (deep-links to the linked client when one exists). The two states are mutually exclusive — that is the duplicate-conversion guard, with the backend remaining permissive (multiple clients per lead are technically allowed; the UI prevents accidents).
+      * Mounts `ClientFormModal` with `prefill={ fullName, phone, email, notes, budget, preferredLocation, linkedLeadId, assignedAgentId }` derived from the lead. `onSuccess(created)` navigates to `/clients/{id}?converted=1`.
+      * Also restored the previously-broken `notesError` state (was being set in `handleSaveNotes` without a declaration, producing a runtime error).
+    - `pages/ClientDetailPage.tsx`:
+      * NEW state: `dealOpen`, `deals`, `dealsLoading`. Reads `?converted=1` via `useSearchParams` and renders a dismissable success banner (`conversion-success-banner`).
+      * NEW: green `create-deal-button` in the header with a count badge of existing deals.
+      * NEW: right-rail `client-deals-card` listing the first 5 deals for the client + total count badge, each row deep-linking to `/deals/{id}`.
+      * Mounts `DealFormModal` with `prefill={ clientId, assignedAgentId, title: '{client.fullName} — ' }` and `lockClient={{ id, fullName }}`. `onSuccess(saved)` navigates to `/deals/{id}`.
+    - `pages/PropertyDetailPage.tsx`:
+      * NEW state: `linkedDeals`, `linkedDealsLoading`. Fetches `dealsApi.list({ propertyId: id, limit: 25 })` in parallel with the existing matching-leads call.
+      * NEW: right-rail `property-linked-deals-card` with `property-linked-deals-count` badge + the first 5 linked deals, each deep-linking to `/deals/{id}`.
+  - **Deal completion (WON) workflow** — already wired by previous phases; this phase verified end-to-end that it remains intact:
+    - The existing diff-based lifecycle hook in `dealActivity` writes a `STATUS_CHANGED` row when the status flips to WON. That row now also surfaces in the merged client timeline as a `DEAL / STATUS_CHANGED` entry (verified live: `Deal "{title}" — Status changed from NEW to WON`).
+    - Reports/deals aggregation is unchanged and continues to count WON deals + sum their amounts under `revenue`. Dashboard reads from the same reports surface, so dashboard stats update automatically when a deal is marked WON.
+  - **Unified timeline** — point 5 of the spec — is satisfied by the merged client timeline that now spans 5 sources in strict chronological order: `CLIENT` (creation + link event) ↓ `COMMUNICATION` (whatsapp/calls on linked lead) ↓ `FOLLOWUP` (linked lead's follow-ups) ↓ `ACTIVITY` (linked lead's generic activity) ↓ `DEAL` (every deal lifecycle event for this client, including STATUS_CHANGED → WON). Verified live with a 5-item composite that traversed all four phases of the journey in a single API call.
+  - **Files modified (9)**: 3 backend services/controllers (`deal.service.ts`, `deal.controller.ts`, `client-timeline.service.ts`), 6 frontend (`types/index.ts`, `services/deals.ts`, `components/clients/ClientActivityTimeline.tsx`, `components/clients/ClientFormModal.tsx`, `components/deals/DealFormModal.tsx`, `pages/LeadDetailPage.tsx`, `pages/ClientDetailPage.tsx`, `pages/PropertyDetailPage.tsx`).
+  - **Files NOT touched**: every Prisma schema field, every route file, every middleware, every other backend service or controller, MainLayout, Sidebar, Navbar, Notifications, every analytics file, every CSV file, every settings file, the Reports page, the Pipeline page, the Communications page, the Activity page, the WhatsApp service, the property image module, the Cloudinary integration, the dashboard.
+  - **Verified end-to-end (curl + Playwright)**:
+    - ✓ Lead → Client conversion via UI: modal prefills name/phone/email/notes/budget/preferred-location from the lead, submits, redirects to `/clients/{id}?converted=1`, success banner renders.
+    - ✓ Duplicate-conversion guard: returning to the original lead after conversion shows the green "Open client →" button instead of "Convert to Client".
+    - ✓ Client → Deal: `create-deal-button` opens DealFormModal with client locked. Submits, redirects to the new deal page. Returning to the client page now shows the deal in the right-rail list + count badge increments.
+    - ✓ Property → Deals count: visible on every property detail page; updates live when a new deal is attached.
+    - ✓ Backend deal listing supports both `propertyId` and `clientId` filters (HTTP 200, RBAC-scoped).
+    - ✓ Mark deal WON via PUT `/api/deals/{id}` → `dealActivity` writes `STATUS_CHANGED` → composite client timeline immediately surfaces a `DEAL / STATUS_CHANGED` entry. Reports/deals still aggregates correctly.
+    - ✓ Unified timeline composite verified: `[DEAL STATUS_CHANGED, DEAL CREATED, CLIENT LINKED_LEAD, CLIENT CREATED, FOLLOWUP COMPLETED]` — exact spec ordering.
+
 **Phase 12.1: Property → WhatsApp share — customer-facing format + native image attachment** — COMPLETE (2026-05-20)
   - **Scope**: UX correction for the Phase-12.0 share flow. The Phase-12.0 message embedded the raw Cloudinary URL and a private CRM link as plain text — both leaked implementation details to the lead. This phase rewrites the message to a customer-facing format and adds real WhatsApp image-attachment support so the property photo arrives as a native preview, not a link. Strictly additive on the backend, fully scoped to four files.
   - **Backend extensions (additive, no architecture change, no migration)**:
