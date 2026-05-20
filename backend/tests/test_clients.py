@@ -16,7 +16,7 @@ import pytest
 import requests
 
 BASE = (os.environ.get("REACT_APP_BACKEND_URL")
-        or "https://light-theme-icons.preview.emergentagent.com").rstrip("/")
+        or "https://test-report-final.preview.emergentagent.com").rstrip("/")
 API = f"{BASE}/api"
 
 ADMIN = {"email": "admin@realestate.com", "password": "Admin@2036"}

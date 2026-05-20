@@ -23,6 +23,6 @@
 - ⚠️ Access token currently provided by user is EXPIRED (Meta error code 190, expired 2026-05-18). Real Meta API integration is in place — once a fresh token is provided the send/templates endpoints will work. Webhook GET verification and HMAC POST verification are independent of the access token and verified working.
 
 ## URLs
-- Frontend: https://light-theme-icons.preview.emergentagent.com
+- Frontend: https://test-report-final.preview.emergentagent.com
 - API base: same origin, all routes prefixed with `/api`
 - Webhook URL for Meta: `<base>/api/webhooks/whatsapp`
