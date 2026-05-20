@@ -23,6 +23,7 @@ import { leadsApi, agentsApi, type AgentOption } from '@/services/leads';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { Lead, CreateLeadData, LeadStatus, LeadSource } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 interface Props {
   open: boolean;
@@ -49,7 +50,7 @@ const EMPTY: CreateLeadData = {
 export function LeadFormModal({ open, onClose, onSuccess, lead }: Props) {
   const isEdit = !!lead;
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
   const [form, setForm] = useState<CreateLeadData>(EMPTY);
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [loading, setLoading] = useState(false);

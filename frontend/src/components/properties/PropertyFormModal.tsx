@@ -29,6 +29,7 @@ import type {
   PropertyStatus,
   AreaUnit,
 } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 interface Props {
   open: boolean;
@@ -56,7 +57,7 @@ const EMPTY: CreatePropertyData = {
 export function PropertyFormModal({ open, onClose, onSuccess, property }: Props) {
   const isEdit = !!property;
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
 
   const [form, setForm] = useState<CreatePropertyData>(EMPTY);
   const [agents, setAgents] = useState<AgentOption[]>([]);

@@ -18,6 +18,7 @@ import { prisma } from '../lib/prisma';
 import * as whatsapp from './whatsapp.service';
 import { WhatsAppApiError } from './whatsapp.service';
 import * as activity from './activity.service';
+import { isAdminLevel } from '../lib/roles';
 
 const CREATOR_SELECT = { id: true, name: true, email: true, role: true } as const;
 const LEAD_SELECT = { id: true, fullName: true, phone: true, assignedAgentId: true } as const;
@@ -45,7 +46,7 @@ async function assertLeadAccess(
     (err as Error & { httpStatus?: number }).httpStatus = 404;
     throw err;
   }
-  if (userRole !== 'ADMIN' && lead.assignedAgentId !== userId) {
+  if (!isAdminLevel(userRole) && lead.assignedAgentId !== userId) {
     const err = new Error('You can only communicate on leads assigned to you');
     (err as Error & { httpStatus?: number }).httpStatus = 403;
     throw err;

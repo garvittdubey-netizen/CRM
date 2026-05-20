@@ -13,6 +13,7 @@ import { leadsApi } from '@/services/leads';
 import api, { extractApiError } from '@/services/api';
 import type { Lead, LeadsResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { isAdminLevel } from '@/lib/roles';
 
 function formatBudget(budget: number | null): string {
   if (!budget) return '—';
@@ -38,7 +39,7 @@ export default function LeadsPage() {
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [importOpen, setImportOpen] = useState(false);
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
 
   const handleExport = async () => {
     try {

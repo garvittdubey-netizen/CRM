@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as leadService from '../services/lead.service';
+import { isAdminLevel } from '../lib/roles';
 
 export async function listLeads(req: Request, res: Response): Promise<void> {
   try {
@@ -56,7 +57,7 @@ export async function editLead(req: Request, res: Response): Promise<void> {
   try {
     // Ownership rule: ADMIN can edit any lead.
     // AGENT can edit only leads currently assigned to themselves.
-    if (req.user!.role !== 'ADMIN') {
+    if (!isAdminLevel(req.user!.role)) {
       const existing = await leadService.getLeadById(req.params.id);
       if (!existing) {
         res.status(404).json({ error: 'Lead not found' });

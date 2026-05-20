@@ -66,6 +66,7 @@ import {
   type UserPreferences,
   type AgentVisibilityMode,
 } from '@/services/settings';
+import { isAdminLevel } from '@/lib/roles';
 
 type TabKey = 'profile' | 'preferences' | 'team' | 'system';
 
@@ -85,7 +86,7 @@ const TABS: TabDef[] = [
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
   const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
 
   // Allow the navbar dropdown (and any other consumer) to deep-link to a

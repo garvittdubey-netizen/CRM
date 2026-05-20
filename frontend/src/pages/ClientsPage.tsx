@@ -26,6 +26,7 @@ import { clientsApi, type ClientListParams } from '@/services/clients';
 import { agentsApi, type AgentOption } from '@/services/leads';
 import { useAuth } from '@/hooks/useAuth';
 import type { ClientsResponse } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 type ViewMode = 'grid' | 'list';
 
@@ -33,7 +34,7 @@ const PAGE_LIMIT = 12;
 
 export default function ClientsPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
 
   const [search, setSearch] = useState('');
   const [assignedAgentId, setAssignedAgentId] = useState<string>('ALL');

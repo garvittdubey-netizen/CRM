@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import * as userService from '../services/user.service';
+import type { ActorRole, TargetRole } from '../services/user.service';
+
+const VALID_ROLES: TargetRole[] = ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
 
 /** Maps service-level error codes to HTTP responses consistently. */
 function handleError(e: unknown, res: Response, fallback = 'Request failed'): void {
@@ -10,9 +13,12 @@ function handleError(e: unknown, res: Response, fallback = 'Request failed'): vo
     NOT_FOUND: 404,
     CANNOT_DISABLE_SELF: 400,
     LAST_ADMIN: 400,
+    LAST_SUPER_ADMIN: 400,
+    FORBIDDEN_ROLE_ASSIGNMENT: 403,
+    FORBIDDEN_TARGET: 403,
   };
   const status = err.code && map[err.code] ? map[err.code] : 500;
-  res.status(status).json({ error: err.message || fallback });
+  res.status(status).json({ error: err.message || fallback, code: err.code });
 }
 
 export async function listUsers(req: Request, res: Response): Promise<void> {
@@ -40,19 +46,22 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: 'name, email, password, and role are required' });
     return;
   }
-  if (role !== 'ADMIN' && role !== 'AGENT') {
-    res.status(400).json({ error: 'role must be ADMIN or AGENT' });
+  if (!VALID_ROLES.includes(role)) {
+    res.status(400).json({ error: 'role must be SUPER_ADMIN, ADMIN, or AGENT' });
     return;
   }
 
   try {
-    const user = await userService.createUser({
-      name: String(name),
-      email: String(email),
-      password: String(password),
-      role,
-      isActive: typeof isActive === 'boolean' ? isActive : true,
-    });
+    const user = await userService.createUser(
+      {
+        name: String(name),
+        email: String(email),
+        password: String(password),
+        role: role as TargetRole,
+        isActive: typeof isActive === 'boolean' ? isActive : true,
+      },
+      req.user!.role as ActorRole,
+    );
     res.status(201).json(user);
   } catch (e) {
     handleError(e, res, 'Failed to create user');
@@ -62,8 +71,8 @@ export async function createUser(req: Request, res: Response): Promise<void> {
 export async function updateUser(req: Request, res: Response): Promise<void> {
   const { name, role, isActive, password } = req.body;
 
-  if (role !== undefined && role !== 'ADMIN' && role !== 'AGENT') {
-    res.status(400).json({ error: 'role must be ADMIN or AGENT' });
+  if (role !== undefined && !VALID_ROLES.includes(role)) {
+    res.status(400).json({ error: 'role must be SUPER_ADMIN, ADMIN, or AGENT' });
     return;
   }
 
@@ -72,11 +81,12 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
       req.params.id,
       {
         name,
-        role,
+        role: role as TargetRole | undefined,
         isActive,
         password: password ? String(password) : undefined,
       },
       req.user!.id,
+      req.user!.role as ActorRole,
     );
     res.json(user);
   } catch (e) {

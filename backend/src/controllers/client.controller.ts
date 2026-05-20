@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as clientService from '../services/client.service';
 import { buildClientTimeline } from '../services/client-timeline.service';
+import { isAdminLevel } from '../lib/roles';
 
 export async function listClients(req: Request, res: Response): Promise<void> {
   try {
@@ -30,7 +31,7 @@ export async function getOneClient(req: Request, res: Response): Promise<void> {
       return;
     }
     // AGENT can only read their own assigned clients.
-    if (req.user!.role !== 'ADMIN' && client.assignedAgentId !== req.user!.id) {
+    if (!isAdminLevel(req.user!.role) && client.assignedAgentId !== req.user!.id) {
       res.status(403).json({ error: 'You do not have access to this client' });
       return;
     }
@@ -53,7 +54,7 @@ export async function addClient(req: Request, res: Response): Promise<void> {
     // `null` in the body is honoured as "unassigned" — only `undefined`
     // (i.e. the field was omitted) falls back to the admin's own id.
     const assignedAgentId =
-      req.user!.role === 'ADMIN'
+      isAdminLevel(req.user!.role)
         ? req.body.assignedAgentId === undefined
           ? req.user!.id
           : req.body.assignedAgentId
@@ -103,7 +104,7 @@ export async function editClient(req: Request, res: Response): Promise<void> {
     //   - ADMIN may edit any client.
     //   - AGENT may edit only clients assigned to themselves.
     //   - AGENT may NOT change assignedAgentId via PUT (only ADMIN can reassign).
-    if (req.user!.role !== 'ADMIN') {
+    if (!isAdminLevel(req.user!.role)) {
       if (existing.assignedAgentId !== req.user!.id) {
         res.status(403).json({ error: 'You can only edit clients assigned to you' });
         return;
@@ -176,7 +177,7 @@ export async function removeClient(req: Request, res: Response): Promise<void> {
       res.status(404).json({ error: 'Client not found' });
       return;
     }
-    if (req.user!.role !== 'ADMIN' && existing.assignedAgentId !== req.user!.id) {
+    if (!isAdminLevel(req.user!.role) && existing.assignedAgentId !== req.user!.id) {
       res.status(403).json({ error: 'You can only delete clients assigned to you' });
       return;
     }
@@ -235,7 +236,7 @@ export async function getClientTimeline(req: Request, res: Response): Promise<vo
       res.status(404).json({ error: 'Client not found' });
       return;
     }
-    if (req.user!.role !== 'ADMIN' && client.assignedAgentId !== req.user!.id) {
+    if (!isAdminLevel(req.user!.role) && client.assignedAgentId !== req.user!.id) {
       res.status(403).json({ error: 'You do not have access to this client' });
       return;
     }

@@ -1,8 +1,13 @@
 # Test Credentials
 
-## Admin
+## Super Admin (root — promoted from earliest user during Phase 14.0 migration)
 - Email: `admin@realestate.com`
 - Password: `Admin@2036`
+- Role: SUPER_ADMIN
+
+## Admin (mid-tier — can manage AGENT only)
+- Email: `manager@realestate.com`
+- Password: `Manager@2036`
 - Role: ADMIN
 
 ## Agent

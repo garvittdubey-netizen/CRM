@@ -20,6 +20,7 @@ import { followUpsApi } from '@/services/followups';
 import { extractApiError } from '@/services/api';
 import type { FollowUp } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { isAdminLevel } from '@/lib/roles';
 
 type ViewMode = 'list' | 'calendar';
 type WindowFilter = 'all' | 'upcoming' | 'overdue' | 'today';
@@ -186,7 +187,7 @@ export default function FollowUpsPage() {
               key={group.key}
               dayLabel={fmtDayHeader(group.sample)}
               items={group.items}
-              isAdmin={user?.role === 'ADMIN'}
+              isAdmin={isAdminLevel(user?.role)}
               onEdit={setEditing}
               onComplete={handleComplete}
               onDelete={handleDelete}

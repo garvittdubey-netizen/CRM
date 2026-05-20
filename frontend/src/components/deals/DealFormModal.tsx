@@ -31,6 +31,7 @@ import type {
   Property,
   Client,
 } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 interface Props {
   open: boolean;
@@ -88,7 +89,7 @@ export function DealFormModal({
 }: Props) {
   const isEdit = !!deal;
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
 
   const [form, setForm] = useState<CreateDealData>(EMPTY);
   const [agents, setAgents] = useState<AgentOption[]>([]);

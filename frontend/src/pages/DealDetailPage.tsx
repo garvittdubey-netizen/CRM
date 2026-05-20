@@ -23,6 +23,7 @@ import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { buildCloudinaryUrl } from '@/lib/property-format';
 import type { Deal, DealTimelineItem } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 function formatAmount(value: number | null): string {
   if (value == null) return '—';
@@ -60,7 +61,7 @@ export default function DealDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [error, setError] = useState('');
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
   const canManage = isAdmin || (deal && deal.assignedAgentId === user?.id);
 
   const fetchDeal = useCallback(async () => {

@@ -32,6 +32,7 @@ import type {
   AgentPerformanceRow,
   CommunicationStats,
 } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 interface StatCardConfig {
   testIdKey: string;
@@ -69,7 +70,7 @@ function StatCard({ card }: { card: StatCardConfig }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
 
   // Existing follow-up stats (legacy widget cards above the new analytics)
   const [followUpStats, setFollowUpStats] = useState<FollowUpDashboardStats | null>(null);

@@ -1,10 +1,12 @@
 import api from './api';
 
+export type ManagedRole = 'SUPER_ADMIN' | 'ADMIN' | 'AGENT';
+
 export interface ManagedUser {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'AGENT';
+  role: ManagedRole;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -12,7 +14,7 @@ export interface ManagedUser {
 
 export interface UserListParams {
   search?: string;
-  role?: 'ADMIN' | 'AGENT' | 'ALL';
+  role?: ManagedRole | 'ALL';
   isActive?: 'true' | 'false' | 'ALL';
 }
 
@@ -20,13 +22,13 @@ export interface CreateUserPayload {
   name: string;
   email: string;
   password: string;
-  role: 'ADMIN' | 'AGENT';
+  role: ManagedRole;
   isActive?: boolean;
 }
 
 export interface UpdateUserPayload {
   name?: string;
-  role?: 'ADMIN' | 'AGENT';
+  role?: ManagedRole;
   isActive?: boolean;
   password?: string;
 }
@@ -45,4 +47,21 @@ export const usersApi = {
 
   update: (id: string, payload: UpdateUserPayload) =>
     api.put<ManagedUser>(`/api/users/${id}`, payload).then((r) => r.data),
+};
+
+/**
+ * Returns the set of roles the actor (logged-in user) can assign when
+ * creating or editing another user. Mirrors `rolesActorCanAssign` on the
+ * backend so the UI shows exactly the same options the API would accept.
+ */
+export function rolesActorCanAssign(actorRole?: string): ManagedRole[] {
+  if (actorRole === 'SUPER_ADMIN') return ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
+  if (actorRole === 'ADMIN') return ['AGENT'];
+  return [];
+}
+
+export const ROLE_LABELS: Record<ManagedRole, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Admin',
+  AGENT: 'Agent',
 };

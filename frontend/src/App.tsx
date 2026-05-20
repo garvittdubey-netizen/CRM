@@ -51,7 +51,7 @@ export default function App() {
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
           {/* Admin-only routes */}
-          <Route element={<ProtectedRoute roles={['ADMIN']} />}>
+          <Route element={<ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']} />}>
             <Route element={<MainLayout />}>
               <Route path="/users" element={<UsersPage />} />
               <Route path="/reports" element={<ReportsPage />} />

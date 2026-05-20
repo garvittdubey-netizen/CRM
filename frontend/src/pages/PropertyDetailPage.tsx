@@ -27,6 +27,7 @@ import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import { formatPrice, formatArea } from '@/lib/property-format';
 import type { Property, MatchingLead, Deal } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 export default function PropertyDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
@@ -45,7 +46,7 @@ export default function PropertyDetailPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [error, setError] = useState('');
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
   const canManage = isAdmin || (property?.ownerAgentId && property.ownerAgentId === user?.id);
 
   const fetchProperty = useCallback(async () => {

@@ -33,6 +33,11 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
 /**
  * Restricts access to specified roles. Must be used after authenticate.
+ *
+ * SUPER_ADMIN implicitly satisfies any ADMIN-required check, since SUPER_ADMIN
+ * is the top of the role hierarchy (SUPER_ADMIN > ADMIN > AGENT). This avoids
+ * touching every existing `requireRole('ADMIN')` callsite when the new role
+ * was introduced.
  */
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -40,7 +45,11 @@ export function requireRole(...roles: string[]) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
-    if (!roles.includes(req.user.role)) {
+    const role = req.user.role;
+    const allowed =
+      roles.includes(role) ||
+      (role === 'SUPER_ADMIN' && roles.includes('ADMIN'));
+    if (!allowed) {
       res.status(403).json({ error: 'Insufficient permissions' });
       return;
     }

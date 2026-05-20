@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { DealStatusBadge } from './DealStatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 import type { Deal } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 function formatAmount(value: number | null): string {
   if (value == null) return '—';
@@ -27,7 +28,7 @@ interface Props {
 export function DealListRow({ deal, onEdit, onDelete }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
   const canManage = isAdmin || deal.assignedAgentId === user?.id;
 
   // Clicking anywhere except an action button opens the detail page. We

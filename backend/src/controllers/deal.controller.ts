@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as dealService from '../services/deal.service';
 import { buildDealTimeline } from '../services/deal-timeline.service';
+import { isAdminLevel } from '../lib/roles';
 
 /** Indian-format short money string used inside activity descriptions. */
 function formatAmount(value: number | null | undefined): string {
@@ -110,7 +111,7 @@ export async function getOneDeal(req: Request, res: Response): Promise<void> {
       res.status(404).json({ error: 'Deal not found' });
       return;
     }
-    if (req.user!.role !== 'ADMIN' && deal.assignedAgentId !== req.user!.id) {
+    if (!isAdminLevel(req.user!.role) && deal.assignedAgentId !== req.user!.id) {
       res.status(403).json({ error: 'You do not have access to this deal' });
       return;
     }
@@ -135,7 +136,7 @@ export async function addDeal(req: Request, res: Response): Promise<void> {
     //     omitted"; we fall back to the admin themselves. Deals must have an
     //     owner (the schema requires assignedAgentId), so we never persist null.
     const assignedAgentId =
-      req.user!.role === 'ADMIN'
+      isAdminLevel(req.user!.role)
         ? req.body.assignedAgentId || req.user!.id
         : req.user!.id;
 
@@ -174,7 +175,7 @@ export async function editDeal(req: Request, res: Response): Promise<void> {
 
     // AGENT may edit only their own deals and may NOT change `assignedAgentId`
     // (admin-only re-assignment, matching the Lead/Client pattern).
-    if (req.user!.role !== 'ADMIN') {
+    if (!isAdminLevel(req.user!.role)) {
       if (existing.assignedAgentId !== req.user!.id) {
         res.status(403).json({ error: 'You can only edit deals assigned to you' });
         return;
@@ -225,7 +226,7 @@ export async function removeDeal(req: Request, res: Response): Promise<void> {
       res.status(404).json({ error: 'Deal not found' });
       return;
     }
-    if (req.user!.role !== 'ADMIN' && existing.assignedAgentId !== req.user!.id) {
+    if (!isAdminLevel(req.user!.role) && existing.assignedAgentId !== req.user!.id) {
       res.status(403).json({ error: 'You can only delete deals assigned to you' });
       return;
     }
@@ -255,7 +256,7 @@ export async function getDealTimelineHandler(req: Request, res: Response): Promi
       res.status(404).json({ error: 'Deal not found' });
       return;
     }
-    if (req.user!.role !== 'ADMIN' && deal.assignedAgentId !== req.user!.id) {
+    if (!isAdminLevel(req.user!.role) && deal.assignedAgentId !== req.user!.id) {
       res.status(403).json({ error: 'You do not have access to this deal' });
       return;
     }

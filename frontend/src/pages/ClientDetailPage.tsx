@@ -26,6 +26,7 @@ import { dealsApi } from '@/services/deals';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { Client, ClientTimelineItem, Deal } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 function formatBudget(value: number | null): string {
   if (value == null) return '—';
@@ -56,7 +57,7 @@ export default function ClientDetailPage() {
   const [dealsLoading, setDealsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
   const canManage = isAdmin || (client?.assignedAgentId && client.assignedAgentId === user?.id);
 
   const fetchClient = useCallback(async () => {

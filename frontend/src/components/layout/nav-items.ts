@@ -35,8 +35,8 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Building2,         label: 'Properties',     href: '/properties' },
   { icon: Users,             label: 'Clients',        href: '/clients' },
   { icon: TrendingUp,        label: 'Deals',          href: '/deals' },
-  { icon: BarChart3,         label: 'Reports',        href: '/reports', roles: ['ADMIN'] },
-  { icon: UserCog,           label: 'Users',          href: '/users',   roles: ['ADMIN'] },
+  { icon: BarChart3,         label: 'Reports',        href: '/reports', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { icon: UserCog,           label: 'Users',          href: '/users',   roles: ['ADMIN', 'SUPER_ADMIN'] },
 ];
 
 export const BOTTOM_NAV: NavItem[] = [

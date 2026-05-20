@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Pencil, UserCog, Shield, ShieldOff } from 'lucide-react';
+import { Plus, Search, Pencil, UserCog, Shield, ShieldOff, Crown, ShieldAlert } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,25 +12,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { UserFormModal } from '@/components/users/UserFormModal';
-import { usersApi, type ManagedUser } from '@/services/users';
+import {
+  usersApi,
+  ROLE_LABELS,
+  type ManagedUser,
+  type ManagedRole,
+} from '@/services/users';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 
+type RoleFilter = 'ALL' | ManagedRole;
+type StatusFilter = 'ALL' | 'true' | 'false';
+
 /**
- * User management page — ADMIN only. The route is already gated by
- * `<ProtectedRoute roles={['ADMIN']}>` in App.tsx; we still hide destructive
- * controls for self-rows to prevent footguns at the UI level.
+ * User management page — ADMIN + SUPER_ADMIN only. The route is gated by
+ * `<ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>` in App.tsx. We still
+ * hide destructive controls for self-rows and rows the current actor can't
+ * manage to prevent footguns at the UI level. Backend enforces all rules.
  */
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+
   const [search, setSearch] = useState('');
-  const [role, setRole] = useState<'ALL' | 'ADMIN' | 'AGENT'>('ALL');
-  const [isActive, setIsActive] = useState<'ALL' | 'true' | 'false'>('ALL');
+  const [role, setRole] = useState<RoleFilter>('ALL');
+  const [isActive, setIsActive] = useState<StatusFilter>('ALL');
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState<ManagedUser | null>(null);
+  const [confirmDisable, setConfirmDisable] = useState<ManagedUser | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -49,13 +70,37 @@ export default function UsersPage() {
     return () => clearTimeout(t);
   }, [fetchUsers]);
 
-  const toggleActive = async (target: ManagedUser) => {
+  // Determines if the current actor is permitted to manage `target`. Mirrors
+  // backend `actorCanManageTarget`: SUPER_ADMIN manages everyone, ADMIN
+  // manages AGENT only.
+  const canManage = (target: ManagedUser): boolean => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'SUPER_ADMIN') return true;
+    if (currentUser.role === 'ADMIN') return target.role === 'AGENT';
+    return false;
+  };
+
+  const performToggle = async (target: ManagedUser) => {
+    setConfirmLoading(true);
     try {
       await usersApi.update(target.id, { isActive: !target.isActive });
+      setConfirmDisable(null);
       fetchUsers();
     } catch (e) {
       window.alert(extractApiError(e, 'Failed to update status'));
+    } finally {
+      setConfirmLoading(false);
     }
+  };
+
+  const onToggleClick = (target: ManagedUser) => {
+    // Confirm disabling SUPER_ADMIN explicitly (spec requirement). Enabling
+    // a disabled super admin does not require confirmation.
+    if (target.role === 'SUPER_ADMIN' && target.isActive) {
+      setConfirmDisable(target);
+      return;
+    }
+    void performToggle(target);
   };
 
   return (
@@ -89,18 +134,23 @@ export default function UsersPage() {
               />
             </div>
 
-            <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
-              <SelectTrigger className="w-[150px]" data-testid="users-role-filter">
+            <Select value={role} onValueChange={(v) => setRole(v as RoleFilter)}>
+              <SelectTrigger className="w-[170px]" data-testid="users-role-filter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Roles</SelectItem>
+                {isSuperAdmin && (
+                  <SelectItem value="SUPER_ADMIN" data-testid="users-role-filter-super">
+                    Super Admin
+                  </SelectItem>
+                )}
                 <SelectItem value="ADMIN">Admin</SelectItem>
                 <SelectItem value="AGENT">Agent</SelectItem>
               </SelectContent>
             </Select>
 
-            <Select value={isActive} onValueChange={(v) => setIsActive(v as typeof isActive)}>
+            <Select value={isActive} onValueChange={(v) => setIsActive(v as StatusFilter)}>
               <SelectTrigger className="w-[150px]" data-testid="users-status-filter">
                 <SelectValue />
               </SelectTrigger>
@@ -168,8 +218,9 @@ export default function UsersPage() {
                       key={u.id}
                       user={u}
                       isSelf={u.id === currentUser?.id}
+                      canManage={canManage(u)}
                       onEdit={() => setEditUser(u)}
-                      onToggleActive={() => toggleActive(u)}
+                      onToggleActive={() => onToggleClick(u)}
                     />
                   ))}
                 </tbody>
@@ -190,6 +241,44 @@ export default function UsersPage() {
         onClose={() => setEditUser(null)}
         onSuccess={() => { fetchUsers(); setEditUser(null); }}
       />
+
+      {/* Confirm-disable-super-admin dialog */}
+      <Dialog
+        open={!!confirmDisable}
+        onOpenChange={(o) => !confirmLoading && !o && setConfirmDisable(null)}
+      >
+        <DialogContent className="max-w-md" data-testid="disable-super-admin-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="text-amber-500" size={20} />
+              Disable Super Admin?
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              You are about to disable <strong>{confirmDisable?.name}</strong>, who is a{' '}
+              <strong>Super Admin</strong>. They will be unable to sign in until re-enabled.
+              The action will fail if they are the last active Super Admin.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDisable(null)}
+              disabled={confirmLoading}
+              data-testid="disable-super-admin-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmDisable && performToggle(confirmDisable)}
+              disabled={confirmLoading}
+              data-testid="disable-super-admin-submit"
+            >
+              {confirmLoading ? 'Disabling...' : 'Disable'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -197,11 +286,23 @@ export default function UsersPage() {
 interface UserRowProps {
   user: ManagedUser;
   isSelf: boolean;
+  canManage: boolean;
   onEdit: () => void;
   onToggleActive: () => void;
 }
 
-function UserRow({ user, isSelf, onEdit, onToggleActive }: UserRowProps) {
+const ROLE_BADGE: Record<ManagedRole, { variant: 'default' | 'outline' | 'secondary'; className?: string; icon?: React.ReactNode }> = {
+  SUPER_ADMIN: {
+    variant: 'default',
+    className: 'bg-amber-500 hover:bg-amber-500 text-white border-amber-500',
+    icon: <Crown size={11} className="mr-1" />,
+  },
+  ADMIN: { variant: 'default' },
+  AGENT: { variant: 'outline' },
+};
+
+function UserRow({ user, isSelf, canManage, onEdit, onToggleActive }: UserRowProps) {
+  const badge = ROLE_BADGE[user.role];
   return (
     <tr
       className="border-b last:border-0 hover:bg-muted/30 transition-colors group"
@@ -222,8 +323,13 @@ function UserRow({ user, isSelf, onEdit, onToggleActive }: UserRowProps) {
       </td>
       <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
       <td className="px-4 py-3">
-        <Badge variant={user.role === 'ADMIN' ? 'default' : 'outline'}>
-          {user.role}
+        <Badge
+          variant={badge.variant}
+          className={badge.className}
+          data-testid={`user-role-${user.id}`}
+        >
+          {badge.icon}
+          {ROLE_LABELS[user.role]}
         </Badge>
       </td>
       <td className="px-4 py-3">
@@ -244,8 +350,9 @@ function UserRow({ user, isSelf, onEdit, onToggleActive }: UserRowProps) {
             size="icon"
             className="h-7 w-7"
             onClick={onEdit}
+            disabled={!canManage}
             data-testid={`edit-user-${user.id}`}
-            title="Edit user"
+            title={canManage ? 'Edit user' : 'You cannot edit users at this role level'}
           >
             <Pencil size={13} />
           </Button>
@@ -254,9 +361,15 @@ function UserRow({ user, isSelf, onEdit, onToggleActive }: UserRowProps) {
             size="icon"
             className={`h-7 w-7 ${user.isActive ? 'hover:text-destructive' : 'hover:text-emerald-600'}`}
             onClick={onToggleActive}
-            disabled={isSelf}
+            disabled={isSelf || !canManage}
             data-testid={`toggle-user-${user.id}`}
-            title={isSelf ? 'You cannot disable yourself' : user.isActive ? 'Disable user' : 'Enable user'}
+            title={
+              isSelf
+                ? 'You cannot disable yourself'
+                : !canManage
+                  ? 'You cannot change status for users at this role level'
+                  : user.isActive ? 'Disable user' : 'Enable user'
+            }
           >
             {user.isActive ? <ShieldOff size={13} /> : <Shield size={13} />}
           </Button>

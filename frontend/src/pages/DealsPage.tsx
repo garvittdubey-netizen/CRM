@@ -29,6 +29,7 @@ import { agentsApi, type AgentOption } from '@/services/leads';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { Deal, DealsResponse, DealStatus } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 type ViewMode = 'grid' | 'list';
 
@@ -46,7 +47,7 @@ const STATUS_OPTIONS: Array<{ value: 'ALL' | DealStatus; label: string }> = [
 
 export default function DealsPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
   const navigate = useNavigate();
 
   const [search, setSearch] = useState('');

@@ -6,6 +6,7 @@ import {
   CommunicationDirection,
 } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { isAdminLevel } from '../lib/roles';
 
 /**
  * Analytics service — read-only aggregations over the existing CRM tables.
@@ -224,7 +225,7 @@ export async function getFollowUpStats(scope: Scope, range: ResolvedRange) {
  * - AGENT: returns exactly one row — the caller's own card.
  */
 export async function getAgentPerformance(scope: Scope, range: ResolvedRange) {
-  const isAdmin = scope.userRole === 'ADMIN';
+  const isAdmin = isAdminLevel(scope.userRole);
 
   const agents = await prisma.user.findMany({
     where: isAdmin ? { role: 'AGENT' } : { id: scope.userId },

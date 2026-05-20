@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as propertyService from '../services/property.service';
+import { isAdminLevel } from '../lib/roles';
 
 function parseNumQuery(v: unknown): number | undefined {
   if (v === undefined || v === '') return undefined;
@@ -73,7 +74,7 @@ export async function addProperty(req: Request, res: Response): Promise<void> {
     const payload = {
       ...req.body,
       ownerAgentId:
-        req.user!.role === 'ADMIN'
+        isAdminLevel(req.user!.role)
           ? req.body.ownerAgentId ?? req.user!.id
           : req.user!.id,
     };
@@ -88,7 +89,7 @@ export async function addProperty(req: Request, res: Response): Promise<void> {
 export async function editProperty(req: Request, res: Response): Promise<void> {
   try {
     // Mirror Lead's ownership rule: ADMIN edits any, AGENT only own.
-    if (req.user!.role !== 'ADMIN') {
+    if (!isAdminLevel(req.user!.role)) {
       const existing = await propertyService.getPropertyById(req.params.id);
       if (!existing) {
         res.status(404).json({ error: 'Property not found' });
@@ -121,7 +122,7 @@ export async function editProperty(req: Request, res: Response): Promise<void> {
 
 export async function removeProperty(req: Request, res: Response): Promise<void> {
   try {
-    if (req.user!.role !== 'ADMIN') {
+    if (!isAdminLevel(req.user!.role)) {
       const existing = await propertyService.getPropertyById(req.params.id);
       if (!existing) {
         res.status(404).json({ error: 'Property not found' });

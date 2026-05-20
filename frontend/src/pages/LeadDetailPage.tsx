@@ -34,6 +34,7 @@ import { CommunicationTimeline } from '@/components/communications/Communication
 import { CallLogModal } from '@/components/communications/CallLogModal';
 import type { Lead, Client } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { isAdminLevel } from '@/lib/roles';
 
 function formatBudget(budget: number | null): string {
   if (!budget) return '—';
@@ -160,7 +161,7 @@ export default function LeadDetailPage() {
 
   // Ownership rule mirrored from backend: ADMIN edits anything,
   // AGENT only edits leads currently assigned to them.
-  const canEdit = user?.role === 'ADMIN' || lead.assignedAgentId === user?.id;
+  const canEdit = isAdminLevel(user?.role) || lead.assignedAgentId === user?.id;
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto animate-fade-in" data-testid="lead-detail-page">
@@ -249,7 +250,7 @@ export default function LeadDetailPage() {
               Edit
             </Button>
           )}
-          {user?.role === 'ADMIN' && (
+          {isAdminLevel(user?.role) && (
             <Button
               variant="destructive"
               size="sm"

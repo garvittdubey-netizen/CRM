@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { isAdminLevel } from '../lib/roles';
 
 /**
  * Lightweight notifications service.
@@ -48,7 +49,7 @@ interface Scope {
  */
 export async function buildNotifications(scope: Scope): Promise<NotificationItem[]> {
   const { userId, userRole } = scope;
-  const isAdmin = userRole === 'ADMIN';
+  const isAdmin = isAdminLevel(userRole);
   const now = new Date();
 
   // ── 1. Follow-up reminders ────────────────────────────────────────────────

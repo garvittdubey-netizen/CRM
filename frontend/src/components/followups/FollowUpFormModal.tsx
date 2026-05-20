@@ -23,6 +23,7 @@ import { leadsApi, agentsApi, type AgentOption } from '@/services/leads';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { FollowUp, CreateFollowUpData, FollowUpStatus, Lead } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 interface Props {
   open: boolean;
@@ -58,7 +59,7 @@ const defaultFollowUpDate = () => {
  */
 export function FollowUpFormModal({ open, onClose, onSuccess, lead, followUp }: Props) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
   const isEdit = !!followUp;
 
   const [leadId, setLeadId] = useState<string>(lead?.id ?? followUp?.leadId ?? '');

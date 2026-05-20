@@ -31,6 +31,7 @@ import { agentsApi, type AgentOption } from '@/services/leads';
 import { extractApiError } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import type { Deal, DealStatus } from '@/types';
+import { isAdminLevel } from '@/lib/roles';
 
 /**
  * Kanban-style Deal Board (Phase-2). Visual / interaction parity with the
@@ -62,7 +63,7 @@ export default function DealBoardPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = isAdminLevel(user?.role);
 
   // URL-backed filter state — browser history is the source of truth so
   // shareable links and back/forward navigation work without ceremony.

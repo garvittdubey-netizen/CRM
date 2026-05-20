@@ -15,7 +15,7 @@ export interface Profile {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'AGENT';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'AGENT';
   profileImage: string | null;
   createdAt: string;
 }

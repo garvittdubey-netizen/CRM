@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as followUpService from '../services/followup.service';
 import { prisma } from '../lib/prisma';
+import { isAdminLevel } from '../lib/roles';
 
 /**
  * Lists follow-ups visible to the current user.
@@ -34,7 +35,7 @@ export async function getFollowUp(req: Request, res: Response): Promise<void> {
       return;
     }
     // Agents may only view their own follow-ups
-    if (req.user!.role !== 'ADMIN' && followUp.assignedAgentId !== req.user!.id) {
+    if (!isAdminLevel(req.user!.role) && followUp.assignedAgentId !== req.user!.id) {
       res.status(403).json({ error: 'You do not have access to this follow-up' });
       return;
     }
@@ -62,7 +63,7 @@ export async function createFollowUp(req: Request, res: Response): Promise<void>
     return;
   }
 
-  if (req.user!.role !== 'ADMIN') {
+  if (!isAdminLevel(req.user!.role)) {
     if (assignedAgentId !== req.user!.id) {
       res.status(403).json({ error: 'Agents can only create follow-ups for themselves' });
       return;
@@ -101,7 +102,7 @@ export async function createFollowUp(req: Request, res: Response): Promise<void>
  */
 export async function editFollowUp(req: Request, res: Response): Promise<void> {
   try {
-    if (req.user!.role !== 'ADMIN') {
+    if (!isAdminLevel(req.user!.role)) {
       const existing = await followUpService.getFollowUpById(req.params.id);
       if (!existing) {
         res.status(404).json({ error: 'Follow-up not found' });
@@ -137,7 +138,7 @@ export async function editFollowUp(req: Request, res: Response): Promise<void> {
  */
 export async function completeFollowUp(req: Request, res: Response): Promise<void> {
   try {
-    if (req.user!.role !== 'ADMIN') {
+    if (!isAdminLevel(req.user!.role)) {
       const existing = await followUpService.getFollowUpById(req.params.id);
       if (!existing) {
         res.status(404).json({ error: 'Follow-up not found' });
