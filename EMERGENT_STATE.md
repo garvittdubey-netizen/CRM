@@ -52,6 +52,30 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 11.1: Navbar avatar + dropdown action fixes** — COMPLETE (2026-05-20)
+  - **Scope**: Three frontend-only bug fixes around the navbar user menu — purely additive/corrective, no backend touched, no architecture changes.
+  - **Bugs fixed**:
+    1. Navbar avatar always rendered initials even when `user.profileImage` was set. Root cause: `Navbar.tsx` only mounted `<AvatarFallback>` and never `<AvatarImage>`.
+    2. Dropdown `Profile` and `Settings` items had no `onClick` handlers → no-op.
+    3. After a profile mutation in the Settings page (name change or avatar upload/remove), the navbar did not update because the cached `useAuth().user` object in `AuthContext` was never refreshed.
+  - **Fix details**:
+    - `contexts/AuthContext.tsx`: extended `AuthContextValue` with `refreshUser(): Promise<void>` that re-fetches `/api/auth/me` and replaces the cached user. Safe-noop when there is no token; swallows errors so a stale token still triggers the existing 401 interceptor.
+    - `components/layout/Navbar.tsx`: imported `AvatarImage` from `@/components/ui/avatar` and mount it conditionally — `{user?.profileImage ? <AvatarImage … /> : null}<AvatarFallback>{initials}</AvatarFallback>`. Radix's Avatar primitive automatically promotes the fallback if the image fails to load (404 / blocked / decoding error). Added `onClick` handlers to the two menu items — `Profile` → `navigate('/settings?tab=profile')`, `Settings` → `navigate('/settings')`. New testids: `navbar-avatar`, `navbar-avatar-image`, `navbar-avatar-fallback`. Pre-existing testids (`user-menu-trigger`, `profile-menu-item`, `settings-menu-item`, `logout-menu-item`) preserved.
+    - `pages/SettingsPage.tsx`:
+      * Imported `useSearchParams` from `react-router-dom` and read `?tab=profile|preferences|team|system` on mount + on query-param changes (`useEffect` on `queryTab`). Falls back to `profile` for unknown / missing values. Unknown tab keys and tabs the current role can't see are ignored.
+      * Pulled `refreshUser` from `useAuth()` inside `ProfileSection`. `handleSave` now `await`s `refreshUser()` after the PUT so the navbar's name reflects the change. `handleAvatarChanged` fires `void refreshUser()` after both upload and remove, so the navbar avatar reactively appears or disappears without a page reload.
+  - **Files touched (3, all frontend, additive/corrective)**:
+    - `frontend/src/contexts/AuthContext.tsx`
+    - `frontend/src/components/layout/Navbar.tsx`
+    - `frontend/src/pages/SettingsPage.tsx`
+  - **Files NOT touched**: every backend file (auth/profile/tenant-settings/system controllers, routes, services), Prisma schema, MainLayout, Sidebar, MobileSidebar, ProtectedRoute, LoginPage, NotificationPanel, any other page, any other context. RBAC is unchanged — Profile/Settings menu items are visible to both roles (correct, since both can see /settings), Team/System tabs inside settings are still admin-only via the tab filter.
+  - **Verified** (Playwright + DOM inspection, no testing subagent — constraint "no full regression suite"):
+    - Avatar rendering: with `profileImage = 'https://i.pravatar.cc/256?u=settingstest'` (a real, loadable image) → `[data-testid="navbar-avatar-image"]` is mounted, `naturalWidth = 256`, visible; `AvatarFallback` is hidden. With `profileImage = null` → `AvatarImage` is not mounted, `AvatarFallback` with initials shows.
+    - Dropdown actions: clicking Profile → URL `/settings?tab=profile`, `[data-testid="settings-tab-profile"]` reports `aria-selected="true"`. Clicking Settings → URL `/settings`, default tab (Profile) is selected.
+    - Reactive sync: clicking the in-page Remove-avatar button (no page reload) immediately updates the navbar — `AvatarImage` unmounts, fallback returns.
+    - Name change: typing a new name in Profile section + Save → navbar's dropdown header + sidebar footer name updates immediately (verified visually with "Test Agent" → "Test Agent Updated").
+  - **No regression**: existing dropdown items (Logout), notifications panel, theme toggle, mobile menu button unchanged. Sidebar / MobileSidebar / MainLayout never inspect `user.profileImage`, so they continue to render initials in their own avatar slots — those remain unchanged.
+
 **Phase 11.0: Settings page** — COMPLETE (2026-05-20)
   - **Scope**: A new self-contained `/settings` page with four tabbed sections (Profile, Preferences, Team Settings [admin], System Status [admin]). Strictly additive — no existing module (auth, leads, follow-ups, communications, whatsapp, analytics, csv, users, pipeline, properties, clients, deals, reports, notifications) was modified or rewired. The Settings nav entry was already in `nav-items.ts` from Phase 6.0; this phase only added the route + page.
   - **New Prisma migration**: `20260520092937_add_settings_and_profile_image`:

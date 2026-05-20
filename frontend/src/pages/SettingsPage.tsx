@@ -17,6 +17,7 @@
  * either the backend or the user's own localStorage.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import {
   User as UserIcon,
@@ -86,7 +87,26 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
-  const [active, setActive] = useState<TabKey>('profile');
+
+  // Allow the navbar dropdown (and any other consumer) to deep-link to a
+  // specific tab via `?tab=profile|preferences|team|system`. Falls back to
+  // "profile" for unknown/missing values.
+  const [searchParams] = useSearchParams();
+  const queryTab = searchParams.get('tab') as TabKey | null;
+  const initialTab: TabKey =
+    queryTab && visibleTabs.some((t) => t.key === queryTab) ? queryTab : 'profile';
+  const [active, setActive] = useState<TabKey>(initialTab);
+
+  // Honour query-param changes even when SettingsPage stays mounted (e.g.
+  // clicking the navbar's Profile item while already on /settings).
+  useEffect(() => {
+    if (queryTab && visibleTabs.some((t) => t.key === queryTab)) {
+      setActive(queryTab);
+    }
+    // visibleTabs is recomputed each render but stable in identity terms for
+    // a given user; intentionally omit from deps to avoid loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryTab]);
 
   return (
     <div className="space-y-6 animate-fade-in" data-testid="settings-page">
@@ -143,6 +163,7 @@ export default function SettingsPage() {
 // ─────────────────────────────────────────────────────────────────────────
 
 function ProfileSection() {
+  const { refreshUser } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -174,6 +195,9 @@ function ProfileSection() {
     try {
       const updated = await profileApi.update({ name });
       setProfile(updated);
+      // Sync AuthContext so the navbar (and anywhere else reading useAuth)
+      // reflects the new name immediately.
+      await refreshUser();
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch (e) {
@@ -185,6 +209,9 @@ function ProfileSection() {
 
   const handleAvatarChanged = (newUrl: string | null) => {
     setProfile((p) => (p ? { ...p, profileImage: newUrl } : p));
+    // Push the new (or cleared) avatar into AuthContext so the navbar
+    // re-renders with the Cloudinary image instantly.
+    void refreshUser();
   };
 
   if (loading || !profile) {

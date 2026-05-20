@@ -7,6 +7,10 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Re-fetches `/api/auth/me` and updates the cached user. Call this after
+   *  any self-mutation (profile name, profileImage, etc.) so subscribers like
+   *  the navbar avatar reflect the change without a full page reload. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -44,8 +48,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async (): Promise<void> => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    try {
+      const { data } = await api.get<User>('/api/auth/me');
+      setUser(data);
+    } catch {
+      // Swallow — a stale token gets cleared by the global 401 interceptor.
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

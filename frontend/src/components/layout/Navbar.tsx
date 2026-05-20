@@ -3,7 +3,7 @@ import { Menu, Moon, Sun, LogOut, User, Settings } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -28,6 +28,12 @@ export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
     logout();
     navigate('/login');
   };
+
+  // Both menu items deep-link into the Settings page. "Profile" preselects
+  // the profile tab via a query param the SettingsPage reads on mount; the
+  // page falls back to "profile" by default so the hash is purely cosmetic.
+  const handleOpenProfile = () => navigate('/settings?tab=profile');
+  const handleOpenSettings = () => navigate('/settings');
 
   const initials = user?.name
     ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -76,11 +82,21 @@ export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="relative h-9 w-9 rounded-full"
+              className="relative h-9 w-9 rounded-full p-0 overflow-hidden"
               data-testid="user-menu-trigger"
+              aria-label="Open user menu"
             >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              <Avatar className="h-9 w-9" data-testid="navbar-avatar">
+                {user?.profileImage ? (
+                  <AvatarImage
+                    src={user.profileImage}
+                    alt={user.name}
+                    data-testid="navbar-avatar-image"
+                  />
+                ) : null}
+                <AvatarFallback className="text-xs" data-testid="navbar-avatar-fallback">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
@@ -95,11 +111,11 @@ export default function Navbar({ onMobileMenuOpen }: NavbarProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem data-testid="profile-menu-item">
+            <DropdownMenuItem onClick={handleOpenProfile} data-testid="profile-menu-item">
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem data-testid="settings-menu-item">
+            <DropdownMenuItem onClick={handleOpenSettings} data-testid="settings-menu-item">
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
             </DropdownMenuItem>
