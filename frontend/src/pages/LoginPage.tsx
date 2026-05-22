@@ -66,12 +66,14 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="flex items-center mb-10" data-testid="login-logo">
-          <img
-            src="/builderone-logo-cropped.png"
-            alt="BuilderOne CRM"
-            className="h-12 w-auto"
-            draggable={false}
-          />
+          <div className="inline-flex items-center justify-center rounded-xl bg-slate-900 ring-1 ring-slate-800/60 px-4 h-14 shadow-sm">
+            <img
+              src="/builderone-logo-cropped.png"
+              alt="BuilderOne CRM"
+              className="h-9 w-auto object-contain"
+              draggable={false}
+            />
+          </div>
         </div>
 
         <div className="w-full max-w-sm mx-auto">

@@ -57,19 +57,24 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )}
         >
           {collapsed ? (
-            <img
-              src="/favicon.png"
-              alt="BuilderOne"
-              className="h-7 w-7 shrink-0 object-contain"
-              data-testid="sidebar-logo-collapsed"
-              draggable={false}
-            />
+            <div className="inline-flex items-center justify-center rounded-lg bg-slate-900 ring-1 ring-slate-800/60 h-9 w-9 shrink-0">
+              <img
+                src="/favicon.png"
+                alt="BuilderOne"
+                className="h-6 w-6 object-contain"
+                data-testid="sidebar-logo-collapsed"
+                draggable={false}
+              />
+            </div>
           ) : (
-            <div className="flex items-center overflow-hidden" data-testid="sidebar-logo">
+            <div
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 ring-1 ring-slate-800/60 px-3 h-10 overflow-hidden"
+              data-testid="sidebar-logo"
+            >
               <img
                 src="/builderone-logo-cropped.png"
                 alt="BuilderOne CRM"
-                className="h-8 w-auto object-contain dark:invert-0"
+                className="h-7 w-auto object-contain"
                 draggable={false}
               />
             </div>

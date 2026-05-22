@@ -47,12 +47,14 @@ export default function MobileSidebar({ open, onOpenChange }: Props) {
       >
         <SheetHeader className="border-b">
           <div className="flex items-center gap-2">
-            <img
-              src="/builderone-logo-cropped.png"
-              alt="BuilderOne CRM"
-              className="h-8 w-auto object-contain"
-              draggable={false}
-            />
+            <div className="inline-flex items-center justify-center rounded-lg bg-slate-900 ring-1 ring-slate-800/60 px-3 h-10">
+              <img
+                src="/builderone-logo-cropped.png"
+                alt="BuilderOne CRM"
+                className="h-7 w-auto object-contain"
+                draggable={false}
+              />
+            </div>
             <SheetTitle className="sr-only">BuilderOne CRM</SheetTitle>
           </div>
           <SheetDescription>Navigate the CRM</SheetDescription>

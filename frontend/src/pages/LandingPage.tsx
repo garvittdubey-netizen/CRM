@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -6,7 +6,6 @@ import {
   Building,
   UserCheck,
   Workflow,
-  MessageCircle,
   BarChart3,
   Users2,
   Bell,
@@ -17,24 +16,51 @@ import {
   TrendingUp,
   Radio,
   Sparkles,
-  Phone,
   CheckCircle2,
   ChevronDown,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 
 const WHATSAPP_NUMBER = '916355997080';
-const WHATSAPP_MSG =
-  'Hey, I am interested in BuilderOne CRM';
+const WHATSAPP_MSG = 'Hey, I am interested in BuilderOne CRM';
 const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MSG)}`;
+const THEME_KEY = 'landing:theme';
+
+/** Official WhatsApp brand mark. Filled (green-on-white phone) is used everywhere
+ *  the brand color should dominate (floating button). The outlined variant lets
+ *  it sit inline with the surrounding button color. */
+function WhatsAppIcon({ size = 18, className = '', variant = 'brand' }: { size?: number; className?: string; variant?: 'brand' | 'inherit' }) {
+  if (variant === 'brand') {
+    return (
+      <svg viewBox="0 0 32 32" width={size} height={size} className={className} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path
+          fill="#25D366"
+          d="M16.003 0C7.166 0 .003 7.163.003 16c0 2.823.738 5.474 2.03 7.778L0 32l8.444-2.213A15.94 15.94 0 0 0 16.003 32C24.84 32 32 24.836 32 16S24.84 0 16.003 0Z"
+        />
+        <path
+          fill="#FFFFFF"
+          d="M16.003 29.333c-2.504 0-4.83-.682-6.834-1.864l-.49-.293-5.012 1.314 1.34-4.882-.32-.503A13.262 13.262 0 0 1 2.67 16c0-7.355 5.978-13.333 13.333-13.333S29.336 8.645 29.336 16c0 7.354-5.978 13.333-13.333 13.333Zm7.31-9.985c-.401-.2-2.37-1.17-2.737-1.304-.367-.134-.634-.2-.9.2-.268.4-1.033 1.303-1.267 1.57-.234.267-.467.3-.868.1-.4-.2-1.692-.624-3.225-1.989-1.192-1.062-1.998-2.375-2.232-2.775-.234-.4-.025-.616.176-.815.18-.18.4-.467.6-.7.2-.234.267-.4.4-.667.134-.267.067-.5-.033-.7-.1-.2-.9-2.166-1.234-2.966-.325-.78-.654-.674-.9-.687a16.71 16.71 0 0 0-.768-.014c-.267 0-.7.1-1.067.5-.367.4-1.4 1.366-1.4 3.333 0 1.967 1.434 3.866 1.633 4.133.2.267 2.82 4.31 6.834 6.046.954.412 1.7.658 2.28.842.957.305 1.829.262 2.518.16.768-.115 2.37-.967 2.703-1.9.334-.933.334-1.733.234-1.9-.1-.167-.367-.267-.768-.467Z"
+        />
+      </svg>
+    );
+  }
+  // Inherit color (currentColor) — for use inline with text-colored buttons
+  return (
+    <svg viewBox="0 0 32 32" width={size} height={size} className={className} fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M27.2 4.65A15.92 15.92 0 0 0 16.003 0C7.166 0 .003 7.163.003 16c0 2.823.738 5.474 2.03 7.778L0 32l8.444-2.213A15.94 15.94 0 0 0 16.003 32C24.84 32 32 24.836 32 16a15.92 15.92 0 0 0-4.8-11.35Zm-11.197 24.7c-2.504 0-4.83-.683-6.834-1.864l-.49-.294-5.012 1.314 1.34-4.881-.32-.504A13.26 13.26 0 0 1 2.67 16c0-7.355 5.978-13.333 13.333-13.333S29.336 8.645 29.336 16c0 7.354-5.978 13.349-13.333 13.349Zm7.31-9.985c-.401-.2-2.37-1.17-2.737-1.303-.367-.134-.634-.2-.9.2-.268.4-1.033 1.303-1.267 1.57-.234.267-.467.3-.868.1-.4-.2-1.692-.624-3.225-1.99-1.192-1.061-1.998-2.374-2.232-2.774-.234-.4-.025-.616.175-.815.181-.18.4-.467.6-.7.2-.234.268-.4.4-.667.134-.267.067-.5-.033-.7-.1-.2-.9-2.167-1.233-2.966-.326-.78-.655-.674-.9-.687a16.71 16.71 0 0 0-.768-.014c-.267 0-.7.1-1.067.5s-1.4 1.366-1.4 3.333c0 1.967 1.434 3.866 1.633 4.133.2.267 2.82 4.31 6.834 6.046.954.413 1.7.658 2.281.842.957.305 1.828.262 2.517.16.768-.115 2.37-.967 2.703-1.9.334-.933.334-1.733.234-1.9-.1-.167-.367-.267-.767-.467Z" />
+    </svg>
+  );
+}
 
 const FEATURES = [
   { icon: Users, title: 'Lead Management', desc: 'Capture, qualify, and route every inbound lead with zero leakage.' },
   { icon: Building, title: 'Property Management', desc: 'A single source of truth for inventory, pricing, and availability.' },
   { icon: UserCheck, title: 'Client Management', desc: 'Unified client profiles with full history and preferences.' },
   { icon: Workflow, title: 'Deal Pipeline', desc: 'Drag-and-drop kanban from negotiation to closure.' },
-  { icon: MessageCircle, title: 'WhatsApp Integration', desc: 'Talk to leads on the channel they actually reply on.' },
+  { icon: () => <WhatsAppIcon size={18} variant="inherit" className="text-[#25D366]" />, title: 'WhatsApp Integration', desc: 'Talk to leads on the channel they actually reply on.' },
   { icon: BarChart3, title: 'Analytics Dashboard', desc: 'Real-time KPIs across teams, funnels, and revenue.' },
   { icon: Users2, title: 'Team Management', desc: 'Roles, territories, and ownership without the chaos.' },
   { icon: CalendarClock, title: 'Follow-ups', desc: 'Smart reminders so no opportunity goes cold.' },
@@ -60,49 +86,99 @@ const WHY_REASONS = [
   { icon: TrendingUp, title: 'Real-time analytics', desc: 'Pipeline health, agent performance, revenue — live, not next week.', accent: 'from-fuchsia-400 to-pink-500' },
 ];
 
+/**
+ * Logo chip — wraps the BuilderOne logo in a dark navy backdrop so the
+ * gold + white logo stays readable on BOTH light and dark page themes
+ * (the original PNG was authored against a black canvas).
+ */
+function LogoChip({ size = 'md', testId }: { size?: 'sm' | 'md' | 'lg'; testId?: string }) {
+  const heights = { sm: 'h-9', md: 'h-11', lg: 'h-14' };
+  const inner = { sm: 'h-6', md: 'h-7', lg: 'h-9' };
+  return (
+    <div
+      className={`inline-flex items-center justify-center rounded-xl bg-slate-900 ring-1 ring-slate-800/60 dark:ring-amber-500/20 px-3 ${heights[size]} shadow-sm`}
+      data-testid={testId}
+    >
+      <img
+        src="/builderone-logo-cropped.png"
+        alt="BuilderOne CRM"
+        className={`${inner[size]} w-auto object-contain`}
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Local theme state for the landing page (independent from the CRM theme).
+  // Persisted to localStorage so the choice survives refresh.
+  const [dark, setDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const stored = window.localStorage.getItem(THEME_KEY);
+    if (stored === 'dark') return true;
+    if (stored === 'light') return false;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  });
 
   useEffect(() => {
     document.title = 'BuilderOne CRM — Smart CRM for Builders & Real Estate Teams';
   }, []);
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
+    } catch {
+      /* ignored — quota / disabled storage */
+    }
+  }, [dark]);
+
   const handleExplore = () => navigate(user ? '/dashboard' : '/login');
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 antialiased overflow-x-hidden" data-testid="landing-page">
+    <div
+      className={`${dark ? 'dark' : ''} min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased overflow-x-hidden transition-colors duration-300`}
+      data-testid="landing-page"
+      data-theme={dark ? 'dark' : 'light'}
+    >
       {/* ============ NAV ============ */}
-      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-white/70 border-b border-slate-200/60">
+      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-white/70 dark:bg-slate-950/70 border-b border-slate-200/60 dark:border-slate-800/60">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3" data-testid="landing-nav-logo">
-            <img
-              src="/builderone-logo-cropped.png"
-              alt="BuilderOne CRM"
-              className="h-9 w-auto"
-              draggable={false}
-            />
+            <LogoChip size="sm" testId="nav-logo-chip" />
           </div>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="#features" className="hover:text-slate-900 transition-colors">Features</a>
-            <a href="#workflow" className="hover:text-slate-900 transition-colors">Workflow</a>
-            <a href="#why" className="hover:text-slate-900 transition-colors">Why us</a>
-            <a href="#about" className="hover:text-slate-900 transition-colors">About</a>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
+            <a href="#features" className="hover:text-slate-900 dark:hover:text-white transition-colors">Features</a>
+            <a href="#workflow" className="hover:text-slate-900 dark:hover:text-white transition-colors">Workflow</a>
+            <a href="#why" className="hover:text-slate-900 dark:hover:text-white transition-colors">Why us</a>
+            <a href="#about" className="hover:text-slate-900 dark:hover:text-white transition-colors">About</a>
           </nav>
           <div className="flex items-center gap-2">
+            {/* Theme toggle */}
+            <button
+              type="button"
+              onClick={() => setDark((v) => !v)}
+              aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
+              className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              data-testid="theme-toggle-button"
+            >
+              {dark ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             <a
               href={WHATSAPP_LINK}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-slate-700 hover:text-emerald-600 transition-colors px-3 py-2 rounded-md"
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors px-3 py-2 rounded-md"
               data-testid="nav-whatsapp-link"
             >
-              <Phone size={14} />
+              <WhatsAppIcon size={16} variant="brand" />
               WhatsApp
             </a>
             <Button
               onClick={handleExplore}
-              className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] text-white shadow-sm"
+              className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-slate-950 shadow-sm"
               data-testid="nav-explore-button"
             >
               Explore CRM
@@ -117,37 +193,38 @@ export default function LandingPage() {
         {/* Decorative grid bg */}
         <div className="absolute inset-0 pointer-events-none">
           <div
-            className="absolute inset-0 opacity-[0.04]"
+            className="absolute inset-0 opacity-[0.04] dark:opacity-[0.08]"
             style={{
               backgroundImage:
-                'linear-gradient(to right, #0f172a 1px, transparent 1px), linear-gradient(to bottom, #0f172a 1px, transparent 1px)',
+                'linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)',
               backgroundSize: '64px 64px',
+              color: dark ? '#f8fafc' : '#0f172a',
             }}
           />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[800px] rounded-full opacity-30 blur-3xl bg-gradient-to-br from-amber-200 via-blue-100 to-transparent" />
-          <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full opacity-20 blur-3xl bg-gradient-to-tr from-indigo-200 to-transparent" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[800px] rounded-full opacity-30 dark:opacity-20 blur-3xl bg-gradient-to-br from-amber-200 via-blue-100 to-transparent dark:from-amber-500/30 dark:via-indigo-500/20 dark:to-transparent" />
+          <div className="absolute bottom-0 right-0 w-[600px] h-[600px] rounded-full opacity-20 dark:opacity-15 blur-3xl bg-gradient-to-tr from-indigo-200 to-transparent dark:from-fuchsia-500/30 dark:to-transparent" />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-6 lg:px-10">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <div className="space-y-8 animate-fade-in">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50/80 text-amber-800 text-xs font-semibold tracking-wide">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-semibold tracking-wide">
                 <Sparkles size={12} />
                 BUILT FOR BUILDERS &amp; REAL ESTATE TEAMS
               </div>
 
               <h1
-                className="font-heading font-semibold tracking-tight text-5xl lg:text-7xl leading-[1.05] text-slate-900"
+                className="font-heading font-semibold tracking-tight text-5xl lg:text-7xl leading-[1.05] text-slate-900 dark:text-white"
                 data-testid="hero-headline"
               >
                 Smart CRM for{' '}
-                <span className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 dark:from-amber-300 dark:via-amber-400 dark:to-amber-500 bg-clip-text text-transparent">
                   Builders
                 </span>{' '}
                 &amp; Real&nbsp;Estate Teams
               </h1>
 
-              <p className="text-lg lg:text-xl text-slate-600 leading-relaxed max-w-xl">
+              <p className="text-lg lg:text-xl text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
                 BuilderOne CRM unifies lead capture, property inventory, client journeys, and
                 deal pipelines — so your team closes faster with zero spreadsheets and zero leakage.
               </p>
@@ -156,7 +233,7 @@ export default function LandingPage() {
                 <Button
                   onClick={handleExplore}
                   size="lg"
-                  className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] text-white shadow-lg shadow-[hsl(214,52%,24%)]/20 h-12 px-6 text-base"
+                  className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-slate-950 shadow-lg shadow-[hsl(214,52%,24%)]/20 dark:shadow-amber-500/20 h-12 px-6 text-base"
                   data-testid="hero-explore-button"
                 >
                   Explore BuilderOne CRM
@@ -166,26 +243,26 @@ export default function LandingPage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="h-12 px-6 text-base border-emerald-500 text-emerald-700 hover:bg-emerald-50 w-full sm:w-auto"
+                    className="h-12 px-6 text-base border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:bg-transparent w-full sm:w-auto"
                     data-testid="hero-whatsapp-button"
                   >
-                    <MessageCircle size={16} className="mr-2" />
+                    <WhatsAppIcon size={18} variant="brand" className="mr-2" />
                     Contact on WhatsApp
                   </Button>
                 </a>
               </div>
 
-              <div className="flex flex-wrap items-center gap-6 pt-6 text-sm text-slate-500">
+              <div className="flex flex-wrap items-center gap-6 pt-6 text-sm text-slate-500 dark:text-slate-400">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-600" />
+                  <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
                   No credit card required
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-600" />
+                  <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
                   Setup in minutes
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-600" />
+                  <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
                   WhatsApp ready
                 </div>
               </div>
@@ -193,7 +270,7 @@ export default function LandingPage() {
 
             {/* Hero visual */}
             <div className="relative animate-fade-in" data-testid="hero-visual">
-              <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-amber-100/60 via-blue-100/40 to-indigo-100/60 blur-2xl" />
+              <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-amber-100/60 via-blue-100/40 to-indigo-100/60 dark:from-amber-500/20 dark:via-blue-500/10 dark:to-indigo-500/20 blur-2xl" />
               <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-[hsl(214,52%,18%)] p-8 lg:p-10 shadow-2xl border border-slate-800/50">
                 <img
                   src="/builderone-logo-cropped.png"
@@ -221,21 +298,21 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="hidden lg:flex justify-center mt-24 text-slate-400 animate-bounce">
+          <div className="hidden lg:flex justify-center mt-24 text-slate-400 dark:text-slate-600 animate-bounce">
             <ChevronDown size={24} />
           </div>
         </div>
       </section>
 
       {/* ============ FEATURES ============ */}
-      <section id="features" className="py-24 lg:py-32 bg-slate-50/60 border-y border-slate-200/60">
+      <section id="features" className="py-24 lg:py-32 bg-slate-50/60 dark:bg-slate-900/40 border-y border-slate-200/60 dark:border-slate-800/60">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="max-w-2xl mb-16">
-            <p className="text-xs font-bold tracking-[0.25em] text-amber-700 mb-3 uppercase">— Features</p>
-            <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight text-slate-900">
+            <p className="text-xs font-bold tracking-[0.25em] text-amber-700 dark:text-amber-400 mb-3 uppercase">— Features</p>
+            <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight text-slate-900 dark:text-white">
               Everything your real-estate team needs, in one workspace.
             </h2>
-            <p className="text-lg text-slate-600 mt-5 leading-relaxed">
+            <p className="text-lg text-slate-600 dark:text-slate-400 mt-5 leading-relaxed">
               A complete CRM built ground-up for builders and brokerages — not a generic SaaS hand-me-down.
             </p>
           </div>
@@ -247,16 +324,16 @@ export default function LandingPage() {
                 <div
                   key={f.title}
                   data-testid={`feature-card-${f.title.toLowerCase().replace(/\s+/g, '-')}`}
-                  className="group relative rounded-2xl border border-slate-200 bg-white p-6 hover:border-[hsl(214,52%,24%)]/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                  className="group relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6 hover:border-[hsl(214,52%,24%)]/30 dark:hover:border-amber-500/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
                 >
-                  <div className="h-11 w-11 rounded-xl bg-[hsl(214,52%,24%)]/5 border border-[hsl(214,52%,24%)]/10 flex items-center justify-center mb-5 group-hover:bg-[hsl(214,52%,24%)] group-hover:border-[hsl(214,52%,24%)] transition-colors">
+                  <div className="h-11 w-11 rounded-xl bg-[hsl(214,52%,24%)]/5 dark:bg-amber-500/10 border border-[hsl(214,52%,24%)]/10 dark:border-amber-500/20 flex items-center justify-center mb-5 group-hover:bg-[hsl(214,52%,24%)] dark:group-hover:bg-amber-500 group-hover:border-[hsl(214,52%,24%)] dark:group-hover:border-amber-500 transition-colors">
                     <Icon
                       size={18}
-                      className="text-[hsl(214,52%,24%)] group-hover:text-white transition-colors"
+                      className="text-[hsl(214,52%,24%)] dark:text-amber-400 group-hover:text-white dark:group-hover:text-slate-950 transition-colors"
                     />
                   </div>
-                  <h3 className="font-heading font-semibold text-lg text-slate-900 mb-1.5">{f.title}</h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">{f.desc}</p>
+                  <h3 className="font-heading font-semibold text-lg text-slate-900 dark:text-white mb-1.5">{f.title}</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{f.desc}</p>
                 </div>
               );
             })}
@@ -268,16 +345,16 @@ export default function LandingPage() {
       <section id="workflow" className="py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="text-center max-w-3xl mx-auto mb-20">
-            <p className="text-xs font-bold tracking-[0.25em] text-amber-700 mb-3 uppercase">— How it works</p>
-            <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight text-slate-900">
+            <p className="text-xs font-bold tracking-[0.25em] text-amber-700 dark:text-amber-400 mb-3 uppercase">— How it works</p>
+            <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight text-slate-900 dark:text-white">
               One continuous workflow.<br />
-              <span className="text-slate-500">From inquiry to closure.</span>
+              <span className="text-slate-500 dark:text-slate-400">From inquiry to closure.</span>
             </h2>
           </div>
 
           <div className="relative">
             {/* Animated connecting line */}
-            <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-amber-300 to-transparent" />
+            <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-amber-300 dark:via-amber-500/60 to-transparent" />
 
             <div className="space-y-6 lg:space-y-0" data-testid="workflow-steps">
               {WORKFLOW_STEPS.map((step, i) => (
@@ -289,16 +366,16 @@ export default function LandingPage() {
                   }`}
                 >
                   <div className={`lg:p-8 ${i % 2 === 0 ? 'lg:text-right' : ''}`}>
-                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-br from-[hsl(214,52%,24%)] to-[hsl(214,52%,35%)] text-amber-300 font-heading font-semibold text-lg shadow-lg mb-3">
+                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-br from-[hsl(214,52%,24%)] to-[hsl(214,52%,35%)] dark:from-amber-500 dark:to-amber-700 text-amber-300 dark:text-slate-950 font-heading font-semibold text-lg shadow-lg mb-3">
                       {String(i + 1).padStart(2, '0')}
                     </div>
-                    <h3 className="text-2xl lg:text-3xl font-heading font-semibold text-slate-900 mb-2">
+                    <h3 className="text-2xl lg:text-3xl font-heading font-semibold text-slate-900 dark:text-white mb-2">
                       {step.title}
                     </h3>
-                    <p className="text-slate-600">{step.desc}</p>
+                    <p className="text-slate-600 dark:text-slate-400">{step.desc}</p>
                   </div>
                   <div className="hidden lg:flex justify-center">
-                    <div className="h-3 w-3 rounded-full bg-amber-500 ring-4 ring-amber-100" />
+                    <div className="h-3 w-3 rounded-full bg-amber-500 ring-4 ring-amber-100 dark:ring-amber-500/20" />
                   </div>
                 </div>
               ))}
@@ -308,13 +385,13 @@ export default function LandingPage() {
       </section>
 
       {/* ============ WHY BUILDERONE ============ */}
-      <section id="why" className="py-24 lg:py-32 bg-gradient-to-b from-slate-50 to-white border-y border-slate-200/60">
+      <section id="why" className="py-24 lg:py-32 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900/40 dark:to-slate-950 border-y border-slate-200/60 dark:border-slate-800/60">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="max-w-2xl mb-16">
-            <p className="text-xs font-bold tracking-[0.25em] text-amber-700 mb-3 uppercase">— Why BuilderOne</p>
-            <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight text-slate-900">
+            <p className="text-xs font-bold tracking-[0.25em] text-amber-700 dark:text-amber-400 mb-3 uppercase">— Why BuilderOne</p>
+            <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight text-slate-900 dark:text-white">
               Built for real-estate reality.<br />
-              <span className="text-slate-500">Not generic SaaS.</span>
+              <span className="text-slate-500 dark:text-slate-400">Not generic SaaS.</span>
             </h2>
           </div>
 
@@ -325,14 +402,14 @@ export default function LandingPage() {
                 <div
                   key={r.title}
                   data-testid={`why-card-${i}`}
-                  className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 p-7 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                  className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-7 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
                 >
-                  <div className={`absolute -top-12 -right-12 h-32 w-32 rounded-full bg-gradient-to-br ${r.accent} opacity-10 blur-2xl`} />
+                  <div className={`absolute -top-12 -right-12 h-32 w-32 rounded-full bg-gradient-to-br ${r.accent} opacity-10 dark:opacity-20 blur-2xl`} />
                   <div className={`relative h-12 w-12 rounded-xl bg-gradient-to-br ${r.accent} flex items-center justify-center mb-5 shadow-md`}>
                     <Icon size={20} className="text-white" />
                   </div>
-                  <h3 className="font-heading font-semibold text-xl text-slate-900 mb-2">{r.title}</h3>
-                  <p className="text-slate-600 leading-relaxed">{r.desc}</p>
+                  <h3 className="font-heading font-semibold text-xl text-slate-900 dark:text-white mb-2">{r.title}</h3>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{r.desc}</p>
                 </div>
               );
             })}
@@ -343,16 +420,16 @@ export default function LandingPage() {
       {/* ============ ABOUT PRODUCT ============ */}
       <section id="about" className="py-24 lg:py-32">
         <div className="max-w-5xl mx-auto px-6 lg:px-10">
-          <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-[hsl(214,52%,15%)] to-slate-900 p-10 lg:p-16 text-white overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl" />
+          <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-[hsl(214,52%,15%)] to-slate-900 dark:from-slate-900 dark:via-purple-950/40 dark:to-slate-900 p-10 lg:p-16 text-white overflow-hidden shadow-2xl border border-slate-800/50">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 dark:bg-purple-500/20 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400/10 dark:bg-fuchsia-500/10 rounded-full blur-3xl" />
 
             <div className="relative grid lg:grid-cols-2 gap-12 items-center">
               <div>
-                <p className="text-xs font-bold tracking-[0.25em] text-amber-400 mb-3 uppercase">— About the product</p>
+                <p className="text-xs font-bold tracking-[0.25em] text-amber-400 dark:text-purple-300 mb-3 uppercase">— About the product</p>
                 <h2 className="text-3xl lg:text-4xl font-heading font-semibold tracking-tight mb-5">
                   BuilderOne CRM is a product by{' '}
-                  <span className="text-amber-300">MICROTECHNIQUE IT</span>
+                  <span className="text-amber-300 dark:text-purple-300">MICROTECHNIQUE IT</span>
                 </h2>
                 <p className="text-slate-300 leading-relaxed mb-6">
                   MITCS is an IT services company building enterprise-grade products for the
@@ -364,7 +441,7 @@ export default function LandingPage() {
                   href="https://microtechniqueit.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-amber-300 hover:text-amber-200 font-medium transition-colors"
+                  className="inline-flex items-center gap-2 text-amber-300 dark:text-purple-300 hover:text-amber-200 dark:hover:text-purple-200 font-medium transition-colors"
                   data-testid="mitcs-website-link"
                 >
                   Visit microtechniqueit.com
@@ -373,16 +450,16 @@ export default function LandingPage() {
               </div>
 
               <div className="flex flex-col items-center justify-center" data-testid="mitcs-logo-block">
-                <div className="rounded-2xl bg-white/5 border border-white/10 p-10 backdrop-blur-sm">
+                <div className="rounded-2xl bg-white/95 border border-white/10 p-8 backdrop-blur-sm shadow-xl">
                   <img
                     src="/mitcs-logo.png"
                     alt="MICROTECHNIQUE IT"
-                    className="h-32 w-auto"
+                    className="h-40 w-auto"
                     draggable={false}
                   />
                 </div>
-                <p className="mt-5 font-heading font-semibold text-lg tracking-wide">MICROTECHNIQUE IT</p>
-                <p className="text-amber-300/80 text-xs tracking-[0.3em] uppercase">MITCS</p>
+                <p className="mt-5 font-heading font-semibold text-lg tracking-wide text-purple-200">MICROTECHNIQUE IT</p>
+                <p className="text-purple-300/70 text-xs tracking-[0.3em] uppercase">MITCS</p>
               </div>
             </div>
           </div>
@@ -390,22 +467,22 @@ export default function LandingPage() {
       </section>
 
       {/* ============ CTA ============ */}
-      <section className="py-24 lg:py-32 bg-slate-50/60 border-t border-slate-200/60">
+      <section className="py-24 lg:py-32 bg-slate-50/60 dark:bg-slate-900/40 border-t border-slate-200/60 dark:border-slate-800/60">
         <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center">
-          <h2 className="text-4xl lg:text-6xl font-heading font-semibold tracking-tight text-slate-900 leading-[1.05]">
+          <h2 className="text-4xl lg:text-6xl font-heading font-semibold tracking-tight text-slate-900 dark:text-white leading-[1.05]">
             Ready to grow your{' '}
-            <span className="bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-amber-500 to-amber-700 dark:from-amber-300 dark:to-amber-500 bg-clip-text text-transparent">
               real-estate business?
             </span>
           </h2>
-          <p className="text-lg text-slate-600 mt-6 max-w-xl mx-auto">
+          <p className="text-lg text-slate-600 dark:text-slate-400 mt-6 max-w-xl mx-auto">
             Join builders and brokerages already running their entire pipeline on BuilderOne CRM.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-10">
             <Button
               onClick={handleExplore}
               size="lg"
-              className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] text-white shadow-lg h-12 px-8 text-base"
+              className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-slate-950 shadow-lg h-12 px-8 text-base"
               data-testid="cta-explore-button"
             >
               Explore CRM
@@ -415,10 +492,10 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-12 px-8 text-base border-emerald-500 text-emerald-700 hover:bg-emerald-50 w-full sm:w-auto"
+                className="h-12 px-8 text-base border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:bg-transparent w-full sm:w-auto"
                 data-testid="cta-whatsapp-button"
               >
-                <MessageCircle size={16} className="mr-2" />
+                <WhatsAppIcon size={18} variant="brand" className="mr-2" />
                 Contact on WhatsApp
               </Button>
             </a>
@@ -427,16 +504,11 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FOOTER ============ */}
-      <footer className="bg-slate-900 text-slate-400 py-12">
+      <footer className="bg-slate-900 dark:bg-black text-slate-400 py-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
-              <img
-                src="/builderone-logo-cropped.png"
-                alt="BuilderOne CRM"
-                className="h-8 w-auto"
-                draggable={false}
-              />
+              <LogoChip size="sm" />
             </div>
             <div className="text-center lg:text-right text-sm">
               <p className="text-slate-300 font-medium" data-testid="footer-copy">
@@ -468,13 +540,13 @@ export default function LandingPage() {
         aria-label="Contact on WhatsApp"
       >
         <div className="relative">
-          <div className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-75" />
-          <div className="relative h-14 w-14 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 shadow-xl shadow-emerald-500/40 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <MessageCircle size={24} className="text-white" />
+          <div className="absolute inset-0 rounded-full bg-[#25D366] animate-ping opacity-60" />
+          <div className="relative h-14 w-14 rounded-full bg-white shadow-xl shadow-emerald-500/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <WhatsAppIcon size={36} variant="brand" />
           </div>
-          <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block whitespace-nowrap bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-md shadow-lg">
+          <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 hidden group-hover:block whitespace-nowrap bg-slate-900 dark:bg-white dark:text-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-md shadow-lg">
             Chat with us on WhatsApp
-            <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900" />
+            <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900 dark:border-l-white" />
           </div>
         </div>
       </a>
