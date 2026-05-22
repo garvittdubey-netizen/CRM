@@ -29,7 +29,7 @@
   "seed_data_creation": "Created 7 TEST_ prefixed users with timestamp-suffixed emails during run (3 SUPER_ADMIN, 2 ADMIN, 2 AGENT). All disabled in test_zz_cleanup. NOTE: Some created users were promoted/demoted during tests; final state of cleanup = all created users isActive=false. One SUPER_ADMIN target was promoted then demoted to ADMIN; another created ADMIN was promoted to SUPER_ADMIN then disabled.",
   "retest_needed": false,
   "main_agent_can_self_test": true,
-  "context_for_next_testing_agent": "RBAC test suite lives at /app/backend/tests/test_super_admin_rbac.py and is idempotent (uses timestamped emails + cleanup). Run with: pytest /app/backend/tests/test_super_admin_rbac.py -v. The last-ADMIN guard test (test_cannot_demote_or_disable_last_admin) intentionally skips when DB has >1 active ADMIN — this is by design to avoid system lockout. Backend URL pulled from REACT_APP_BACKEND_URL env (https://super-admin-roles-1.preview.emergentagent.com). All 16 review requirements verified.",
+  "context_for_next_testing_agent": "RBAC test suite lives at /app/backend/tests/test_super_admin_rbac.py and is idempotent (uses timestamped emails + cleanup). Run with: pytest /app/backend/tests/test_super_admin_rbac.py -v. The last-ADMIN guard test (test_cannot_demote_or_disable_last_admin) intentionally skips when DB has >1 active ADMIN — this is by design to avoid system lockout. Backend URL pulled from REACT_APP_BACKEND_URL env (https://builderone-preview.preview.emergentagent.com). All 16 review requirements verified.",
   "review_items_coverage": {
     "POST /api/users SUPER_ADMIN creates AGENT/ADMIN/SUPER_ADMIN": "PASS (3 tests)",
     "POST /api/users ADMIN role restrictions + FORBIDDEN_ROLE_ASSIGNMENT": "PASS (3 tests)",

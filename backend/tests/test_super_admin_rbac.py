@@ -7,7 +7,7 @@ import time
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://super-admin-roles-1.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://builderone-preview.preview.emergentagent.com").rstrip("/")
 
 SUPER_ADMIN_EMAIL = "admin@realestate.com"
 SUPER_ADMIN_PASS = "Admin@2036"
