@@ -52,6 +52,51 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 15.2: Landing-page dark theme — premium luxe gold-on-black aesthetic** — COMPLETE (2026-05-22)
+  - **Scope**: Refined the Phase-15.1 dark theme into a deliberately premium / "sassy luxe" black-and-gold experience matching the BuilderOne logo colour story (deep black canvas + amber/gold accents). Strictly cosmetic — only dark-mode `dark:` Tailwind classes were tweaked. Light theme is byte-identical to Phase 15.1. No new routes, no auth, no CRM module, no backend change.
+  - **Page-level changes**:
+    - Root background swapped from `slate-950` → `#080604` (near-pure black with a hint of warm/sepia bias). Body text in dark mode bumped to `slate-100`.
+    - Added **page-level ambient gold glows** (3 large radial blurs) as fixed `pointer-events-none` decorative children that only mount when `dark === true`. They're positioned at the corners + dead-centre so any section the visitor scrolls to has a soft amber halo behind it. Sizes: 800×800 (top-left, amber-500/7%), 900×900 (bottom-right, amber-400/5%), 600×600 (centre, yellow-500/3%). All blurred ≥120 px so they read as ambient warmth, not as artifacts.
+    - Every major section (`section#features`, `section#workflow`, `section#why`, `section#about`, `section.CTA`, `footer`, `section.hero`) was given `relative z-10` so its content stacks reliably above the fixed-position glow layer regardless of where the glows render.
+  - **Nav header**:
+    - Background → `dark:bg-black/60` (was `slate-950/70`).
+    - Bottom border → thin gold tint `dark:border-amber-500/10`.
+    - Nav link hover colour → `dark:hover:text-amber-300` (was `dark:hover:text-white`).
+    - Theme toggle button border → `dark:border-amber-500/20`, icon colour → `dark:text-amber-300`, hover bg → `dark:hover:bg-amber-500/10` (matches the gold language).
+    - "Explore CRM" primary button → `dark:bg-gradient-to-r dark:from-amber-400 dark:to-amber-600` with `dark:text-black font-semibold` + `dark:shadow-[0_0_20px_rgba(245,158,11,0.35)]` outer glow.
+  - **Hero**:
+    - Sparkles badge → border `dark:border-amber-400/40`, background `dark:bg-amber-500/[0.08]` with `backdrop-blur-sm` + a faint `dark:shadow-[0_0_30px_rgba(245,158,11,0.15)]` to feel "lit from within".
+    - Headline gradient swapped to a richer `dark:from-amber-200 dark:via-amber-400 dark:to-yellow-600` with a luminous `dark:drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]` glow on the "Builders" span.
+    - Body copy nudged to `dark:text-slate-400` for deeper hierarchy.
+    - Hero "Explore" CTA — same gradient + glow treatment as the nav button (40 px glow for the larger size).
+    - Hero visual card — outer halo enriched (`dark:from-amber-500/30 dark:via-yellow-500/10 dark:to-amber-700/20`), inner card switched from generic slate to a warm-black tone (`dark:from-[#0c0a08] dark:via-[#1a1410] dark:to-[#0c0a08]`) with a 1 px gold ring + a substantial `dark:shadow-[0_25px_80px_-15px_rgba(245,158,11,0.25)]` drop-shadow. Stat tiles inside the hero card → amber-tinted borders + background.
+  - **Features section**:
+    - Section bg → `dark:bg-[#0a0806]/60` with `backdrop-blur-sm`, dividers → `dark:border-amber-500/[0.08]`.
+    - Cards converted to **glassmorphism**: `dark:bg-white/[0.02] dark:backdrop-blur-sm` + `dark:border-amber-500/[0.12]` + hover `dark:border-amber-400/50` and a directional glow `dark:hover:shadow-[0_8px_40px_-10px_rgba(245,158,11,0.25)]`.
+    - Icon tile → gradient bg `dark:from-amber-500/15 dark:to-amber-700/5` + gold border, hover state flips to a filled gold gradient (`dark:from-amber-400 dark:to-amber-600`) with `dark:text-black` icon.
+  - **Workflow numbers**:
+    - Step badges now use a multi-stop gold gradient (`dark:from-amber-300 dark:via-amber-500 dark:to-yellow-700`) with `dark:text-black` numerals + heavy `dark:shadow-[0_0_30px_rgba(245,158,11,0.5)]` glow. The connector dot got `dark:shadow-[0_0_15px_rgba(245,158,11,0.6)]` so it reads as a lit star on the dark canvas.
+  - **Why BuilderOne cards**:
+    - Same glassmorphic recipe as feature cards. Hover glow tuned slightly stronger (`50 px`, 30% opacity).
+    - Decorative gradient blob inside each card bumped to `dark:opacity-30` for visibility against the dark surface.
+  - **About product card**:
+    - Background gradient → `dark:from-[#0c0a08] dark:via-[#1a1410] dark:to-[#0c0a08]` (warm-black across the whole card, matching the hero visual).
+    - Border → `dark:border-amber-500/20`. Two background blobs re-tinted to amber + yellow (was purple/fuchsia).
+    - "MICROTECHNIQUE IT" wordmark inside the heading gets `dark:drop-shadow-[0_0_20px_rgba(245,158,11,0.4)]`.
+    - MITCS logo card retains its bright white interior (so the purple logo stays readable) but gains a gold-tinted ring + a `dark:shadow-[0_20px_60px_-15px_rgba(245,158,11,0.3)]` glow.
+  - **CTA section**:
+    - Background `dark:bg-[#0a0806]/60`. Big radial gold glow placed behind the headline (only in dark mode) for drama.
+    - Headline gradient + glow upgraded to match hero.
+    - Primary CTA button uses the same gold-gradient-with-glow recipe as the nav/hero buttons.
+  - **Footer**:
+    - Background → pure `dark:bg-black`. Top border swapped for a `dark:border-amber-500/20` 1px + an additional `from-transparent via-amber-500/40 to-transparent` horizontal hairline directly above the footer for a luxe "gold filament" divider.
+    - "BuilderOne CRM © 2026" line uses `dark:text-amber-100/90` instead of pure white — adds warmth.
+  - **Floating WhatsApp button**: unchanged in this phase (the brand-green bubble on a white disc already reads beautifully on both themes).
+  - **Files modified (1)**: `frontend/src/pages/LandingPage.tsx` (dark-mode classes only). Light theme — every section, card, button, badge, footer line — is byte-identical to Phase 15.1.
+  - **Files NOT touched**: every backend file, every CRM page, every other component, every shadcn primitive, `tailwind.config.ts`, `index.css`, `index.html`, `manifest.json`, `LoginPage.tsx`, `Sidebar.tsx`, `MobileSidebar.tsx`. The Phase 15.0/15.1 logo backdrop chip + theme toggle + WhatsApp brand mark + new MITCS logo are all preserved.
+  - **Vite cache note**: `node_modules/.vite` was cleared once during the edit to flush a stale parser error after a previous bad-state edit. Vite is currently serving the new file cleanly.
+
+
 **Phase 15.1: Landing-page polish (logo backdrop chip, dark theme toggle, real WhatsApp brand mark, new MITCS logo)** — COMPLETE (2026-05-22)
   - **Scope**: Four targeted UI corrections requested by user after Phase 15.0 landed. Strictly cosmetic/additive — no routes, no auth, no CRM modules, no backend, no schema, no integrations changed.
   - **Logo visibility fix (light backgrounds)**: The BuilderOne logo was authored against a black canvas (gold + white wordmark). On the light landing page header / footer / login page / sidebar, the white wordmark portion was effectively invisible against white. Fix: wrapped every BuilderOne logo instance in a slate-900 (navy-black) rounded chip with a thin 1px ring — preserves the original logo art, restores readability on light surfaces, and looks intentional on dark surfaces too. Applied at:

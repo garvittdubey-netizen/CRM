@@ -139,21 +139,29 @@ export default function LandingPage() {
 
   return (
     <div
-      className={`${dark ? 'dark' : ''} min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased overflow-x-hidden transition-colors duration-300`}
+      className={`${dark ? 'dark' : ''} min-h-screen bg-white text-slate-900 dark:bg-[#080604] dark:text-slate-100 antialiased overflow-x-hidden transition-colors duration-300 relative`}
       data-testid="landing-page"
       data-theme={dark ? 'dark' : 'light'}
     >
+      {/* Premium dark-mode ambient gold glows (page-level, fixed) */}
+      {dark && (
+        <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
+          <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] rounded-full bg-amber-500/[0.07] blur-[140px]" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[900px] h-[900px] rounded-full bg-amber-400/[0.05] blur-[160px]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-yellow-500/[0.03] blur-[120px]" />
+        </div>
+      )}
       {/* ============ NAV ============ */}
-      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-white/70 dark:bg-slate-950/70 border-b border-slate-200/60 dark:border-slate-800/60">
+      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-white/70 dark:bg-black/60 border-b border-slate-200/60 dark:border-amber-500/10">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3" data-testid="landing-nav-logo">
             <LogoChip size="sm" testId="nav-logo-chip" />
           </div>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
-            <a href="#features" className="hover:text-slate-900 dark:hover:text-white transition-colors">Features</a>
-            <a href="#workflow" className="hover:text-slate-900 dark:hover:text-white transition-colors">Workflow</a>
-            <a href="#why" className="hover:text-slate-900 dark:hover:text-white transition-colors">Why us</a>
-            <a href="#about" className="hover:text-slate-900 dark:hover:text-white transition-colors">About</a>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-400">
+            <a href="#features" className="hover:text-slate-900 dark:hover:text-amber-300 transition-colors">Features</a>
+            <a href="#workflow" className="hover:text-slate-900 dark:hover:text-amber-300 transition-colors">Workflow</a>
+            <a href="#why" className="hover:text-slate-900 dark:hover:text-amber-300 transition-colors">Why us</a>
+            <a href="#about" className="hover:text-slate-900 dark:hover:text-amber-300 transition-colors">About</a>
           </nav>
           <div className="flex items-center gap-2">
             {/* Theme toggle */}
@@ -161,7 +169,7 @@ export default function LandingPage() {
               type="button"
               onClick={() => setDark((v) => !v)}
               aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-              className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-amber-500/20 text-slate-600 dark:text-amber-300 hover:bg-slate-100 dark:hover:bg-amber-500/10 transition-colors"
               data-testid="theme-toggle-button"
             >
               {dark ? <Sun size={16} /> : <Moon size={16} />}
@@ -178,7 +186,7 @@ export default function LandingPage() {
             </a>
             <Button
               onClick={handleExplore}
-              className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-slate-950 shadow-sm"
+              className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-gradient-to-r dark:from-amber-400 dark:to-amber-600 dark:hover:from-amber-300 dark:hover:to-amber-500 text-white dark:text-black font-semibold dark:shadow-[0_0_20px_rgba(245,158,11,0.35)] shadow-sm"
               data-testid="nav-explore-button"
             >
               Explore CRM
@@ -189,7 +197,7 @@ export default function LandingPage() {
       </header>
 
       {/* ============ HERO ============ */}
-      <section className="relative pt-32 pb-24 lg:pt-40 lg:pb-32 overflow-hidden">
+      <section className="relative z-10 pt-32 pb-24 lg:pt-40 lg:pb-32 overflow-hidden">
         {/* Decorative grid bg */}
         <div className="absolute inset-0 pointer-events-none">
           <div
@@ -208,7 +216,7 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-6 lg:px-10">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <div className="space-y-8 animate-fade-in">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-semibold tracking-wide">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-200 dark:border-amber-400/40 bg-amber-50/80 dark:bg-amber-500/[0.08] dark:backdrop-blur-sm text-amber-800 dark:text-amber-300 text-xs font-semibold tracking-wide dark:shadow-[0_0_30px_rgba(245,158,11,0.15)]">
                 <Sparkles size={12} />
                 BUILT FOR BUILDERS &amp; REAL ESTATE TEAMS
               </div>
@@ -218,13 +226,13 @@ export default function LandingPage() {
                 data-testid="hero-headline"
               >
                 Smart CRM for{' '}
-                <span className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 dark:from-amber-300 dark:via-amber-400 dark:to-amber-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 dark:from-amber-200 dark:via-amber-400 dark:to-yellow-600 bg-clip-text text-transparent dark:drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]">
                   Builders
                 </span>{' '}
                 &amp; Real&nbsp;Estate Teams
               </h1>
 
-              <p className="text-lg lg:text-xl text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
+              <p className="text-lg lg:text-xl text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
                 BuilderOne CRM unifies lead capture, property inventory, client journeys, and
                 deal pipelines — so your team closes faster with zero spreadsheets and zero leakage.
               </p>
@@ -233,7 +241,7 @@ export default function LandingPage() {
                 <Button
                   onClick={handleExplore}
                   size="lg"
-                  className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-slate-950 shadow-lg shadow-[hsl(214,52%,24%)]/20 dark:shadow-amber-500/20 h-12 px-6 text-base"
+                  className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-gradient-to-r dark:from-amber-400 dark:to-amber-600 dark:hover:from-amber-300 dark:hover:to-amber-500 text-white dark:text-black font-semibold shadow-lg shadow-[hsl(214,52%,24%)]/20 dark:shadow-[0_0_40px_rgba(245,158,11,0.4)] h-12 px-6 text-base"
                   data-testid="hero-explore-button"
                 >
                   Explore BuilderOne CRM
@@ -243,7 +251,7 @@ export default function LandingPage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="h-12 px-6 text-base border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:bg-transparent w-full sm:w-auto"
+                    className="h-12 px-6 text-base border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:bg-transparent dark:border-emerald-500/60 w-full sm:w-auto"
                     data-testid="hero-whatsapp-button"
                   >
                     <WhatsAppIcon size={18} variant="brand" className="mr-2" />
@@ -270,8 +278,8 @@ export default function LandingPage() {
 
             {/* Hero visual */}
             <div className="relative animate-fade-in" data-testid="hero-visual">
-              <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-amber-100/60 via-blue-100/40 to-indigo-100/60 dark:from-amber-500/20 dark:via-blue-500/10 dark:to-indigo-500/20 blur-2xl" />
-              <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-[hsl(214,52%,18%)] p-8 lg:p-10 shadow-2xl border border-slate-800/50">
+              <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-amber-100/60 via-blue-100/40 to-indigo-100/60 dark:from-amber-500/30 dark:via-yellow-500/10 dark:to-amber-700/20 blur-2xl" />
+              <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-[hsl(214,52%,18%)] dark:from-[#0c0a08] dark:via-[#1a1410] dark:to-[#0c0a08] dark:ring-1 dark:ring-amber-500/20 p-8 lg:p-10 shadow-2xl dark:shadow-[0_25px_80px_-15px_rgba(245,158,11,0.25)] border border-slate-800/50">
                 <img
                   src="/builderone-logo-cropped.png"
                   alt="BuilderOne CRM"
@@ -288,7 +296,7 @@ export default function LandingPage() {
                     { n: '3.2×', l: 'Faster closures' },
                     { n: '99.9%', l: 'Uptime' },
                   ].map((s) => (
-                    <div key={s.l} className="rounded-xl bg-white/5 border border-white/10 p-3 text-center backdrop-blur">
+                    <div key={s.l} className="rounded-xl bg-white/5 dark:bg-amber-500/[0.04] border border-white/10 dark:border-amber-500/20 p-3 text-center backdrop-blur">
                       <div className="text-2xl font-heading font-semibold text-amber-300">{s.n}</div>
                       <div className="text-[10px] tracking-wider text-slate-400 uppercase mt-0.5">{s.l}</div>
                     </div>
@@ -305,7 +313,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FEATURES ============ */}
-      <section id="features" className="py-24 lg:py-32 bg-slate-50/60 dark:bg-slate-900/40 border-y border-slate-200/60 dark:border-slate-800/60">
+      <section id="features" className="relative z-10 py-24 lg:py-32 bg-slate-50/60 dark:bg-[#0a0806]/60 dark:backdrop-blur-sm border-y border-slate-200/60 dark:border-amber-500/[0.08]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="max-w-2xl mb-16">
             <p className="text-xs font-bold tracking-[0.25em] text-amber-700 dark:text-amber-400 mb-3 uppercase">— Features</p>
@@ -324,12 +332,12 @@ export default function LandingPage() {
                 <div
                   key={f.title}
                   data-testid={`feature-card-${f.title.toLowerCase().replace(/\s+/g, '-')}`}
-                  className="group relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-6 hover:border-[hsl(214,52%,24%)]/30 dark:hover:border-amber-500/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                  className="group relative rounded-2xl border border-slate-200 dark:border-amber-500/[0.12] bg-white dark:bg-white/[0.02] dark:backdrop-blur-sm p-6 hover:border-[hsl(214,52%,24%)]/30 dark:hover:border-amber-400/50 hover:shadow-xl dark:hover:shadow-[0_8px_40px_-10px_rgba(245,158,11,0.25)] hover:-translate-y-1 transition-all duration-300"
                 >
-                  <div className="h-11 w-11 rounded-xl bg-[hsl(214,52%,24%)]/5 dark:bg-amber-500/10 border border-[hsl(214,52%,24%)]/10 dark:border-amber-500/20 flex items-center justify-center mb-5 group-hover:bg-[hsl(214,52%,24%)] dark:group-hover:bg-amber-500 group-hover:border-[hsl(214,52%,24%)] dark:group-hover:border-amber-500 transition-colors">
+                  <div className="h-11 w-11 rounded-xl bg-[hsl(214,52%,24%)]/5 dark:bg-gradient-to-br dark:from-amber-500/15 dark:to-amber-700/5 border border-[hsl(214,52%,24%)]/10 dark:border-amber-500/30 flex items-center justify-center mb-5 group-hover:bg-[hsl(214,52%,24%)] dark:group-hover:bg-gradient-to-br dark:group-hover:from-amber-400 dark:group-hover:to-amber-600 group-hover:border-[hsl(214,52%,24%)] dark:group-hover:border-amber-400 transition-all">
                     <Icon
                       size={18}
-                      className="text-[hsl(214,52%,24%)] dark:text-amber-400 group-hover:text-white dark:group-hover:text-slate-950 transition-colors"
+                      className="text-[hsl(214,52%,24%)] dark:text-amber-300 group-hover:text-white dark:group-hover:text-black transition-colors"
                     />
                   </div>
                   <h3 className="font-heading font-semibold text-lg text-slate-900 dark:text-white mb-1.5">{f.title}</h3>
@@ -342,7 +350,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ WORKFLOW ============ */}
-      <section id="workflow" className="py-24 lg:py-32">
+      <section id="workflow" className="relative z-10 py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="text-center max-w-3xl mx-auto mb-20">
             <p className="text-xs font-bold tracking-[0.25em] text-amber-700 dark:text-amber-400 mb-3 uppercase">— How it works</p>
@@ -366,7 +374,7 @@ export default function LandingPage() {
                   }`}
                 >
                   <div className={`lg:p-8 ${i % 2 === 0 ? 'lg:text-right' : ''}`}>
-                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-br from-[hsl(214,52%,24%)] to-[hsl(214,52%,35%)] dark:from-amber-500 dark:to-amber-700 text-amber-300 dark:text-slate-950 font-heading font-semibold text-lg shadow-lg mb-3">
+                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-br from-[hsl(214,52%,24%)] to-[hsl(214,52%,35%)] dark:from-amber-300 dark:via-amber-500 dark:to-yellow-700 text-amber-300 dark:text-black font-heading font-semibold text-lg shadow-lg dark:shadow-[0_0_30px_rgba(245,158,11,0.5)] mb-3">
                       {String(i + 1).padStart(2, '0')}
                     </div>
                     <h3 className="text-2xl lg:text-3xl font-heading font-semibold text-slate-900 dark:text-white mb-2">
@@ -375,7 +383,7 @@ export default function LandingPage() {
                     <p className="text-slate-600 dark:text-slate-400">{step.desc}</p>
                   </div>
                   <div className="hidden lg:flex justify-center">
-                    <div className="h-3 w-3 rounded-full bg-amber-500 ring-4 ring-amber-100 dark:ring-amber-500/20" />
+                    <div className="h-3 w-3 rounded-full bg-amber-500 ring-4 ring-amber-100 dark:ring-amber-500/20 dark:shadow-[0_0_15px_rgba(245,158,11,0.6)]" />
                   </div>
                 </div>
               ))}
@@ -385,13 +393,13 @@ export default function LandingPage() {
       </section>
 
       {/* ============ WHY BUILDERONE ============ */}
-      <section id="why" className="py-24 lg:py-32 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900/40 dark:to-slate-950 border-y border-slate-200/60 dark:border-slate-800/60">
+      <section id="why" className="relative z-10 py-24 lg:py-32 bg-gradient-to-b from-slate-50 to-white dark:from-[#0a0806] dark:to-[#080604] border-y border-slate-200/60 dark:border-amber-500/[0.08]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="max-w-2xl mb-16">
             <p className="text-xs font-bold tracking-[0.25em] text-amber-700 dark:text-amber-400 mb-3 uppercase">— Why BuilderOne</p>
             <h2 className="text-4xl lg:text-5xl font-heading font-semibold tracking-tight text-slate-900 dark:text-white">
               Built for real-estate reality.<br />
-              <span className="text-slate-500 dark:text-slate-400">Not generic SaaS.</span>
+              <span className="text-slate-500 dark:text-slate-500">Not generic SaaS.</span>
             </h2>
           </div>
 
@@ -402,10 +410,10 @@ export default function LandingPage() {
                 <div
                   key={r.title}
                   data-testid={`why-card-${i}`}
-                  className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-7 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                  className="relative overflow-hidden rounded-2xl bg-white dark:bg-white/[0.02] dark:backdrop-blur-sm border border-slate-200 dark:border-amber-500/[0.12] p-7 hover:shadow-2xl dark:hover:shadow-[0_8px_50px_-10px_rgba(245,158,11,0.3)] dark:hover:border-amber-400/40 hover:-translate-y-1 transition-all duration-300"
                 >
-                  <div className={`absolute -top-12 -right-12 h-32 w-32 rounded-full bg-gradient-to-br ${r.accent} opacity-10 dark:opacity-20 blur-2xl`} />
-                  <div className={`relative h-12 w-12 rounded-xl bg-gradient-to-br ${r.accent} flex items-center justify-center mb-5 shadow-md`}>
+                  <div className={`absolute -top-12 -right-12 h-32 w-32 rounded-full bg-gradient-to-br ${r.accent} opacity-10 dark:opacity-30 blur-2xl`} />
+                  <div className={`relative h-12 w-12 rounded-xl bg-gradient-to-br ${r.accent} flex items-center justify-center mb-5 shadow-md dark:shadow-lg dark:shadow-amber-500/10`}>
                     <Icon size={20} className="text-white" />
                   </div>
                   <h3 className="font-heading font-semibold text-xl text-slate-900 dark:text-white mb-2">{r.title}</h3>
@@ -418,18 +426,18 @@ export default function LandingPage() {
       </section>
 
       {/* ============ ABOUT PRODUCT ============ */}
-      <section id="about" className="py-24 lg:py-32">
+      <section id="about" className="relative z-10 py-24 lg:py-32">
         <div className="max-w-5xl mx-auto px-6 lg:px-10">
-          <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-[hsl(214,52%,15%)] to-slate-900 dark:from-slate-900 dark:via-purple-950/40 dark:to-slate-900 p-10 lg:p-16 text-white overflow-hidden shadow-2xl border border-slate-800/50">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 dark:bg-purple-500/20 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400/10 dark:bg-fuchsia-500/10 rounded-full blur-3xl" />
+          <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-[hsl(214,52%,15%)] to-slate-900 dark:from-[#0c0a08] dark:via-[#1a1410] dark:to-[#0c0a08] p-10 lg:p-16 text-white overflow-hidden shadow-2xl dark:shadow-[0_25px_80px_-15px_rgba(245,158,11,0.2)] border border-slate-800/50 dark:border-amber-500/20">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 dark:bg-amber-500/20 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400/10 dark:bg-yellow-500/10 rounded-full blur-3xl" />
 
             <div className="relative grid lg:grid-cols-2 gap-12 items-center">
               <div>
-                <p className="text-xs font-bold tracking-[0.25em] text-amber-400 dark:text-purple-300 mb-3 uppercase">— About the product</p>
+                <p className="text-xs font-bold tracking-[0.25em] text-amber-400 dark:text-amber-300 mb-3 uppercase">— About the product</p>
                 <h2 className="text-3xl lg:text-4xl font-heading font-semibold tracking-tight mb-5">
                   BuilderOne CRM is a product by{' '}
-                  <span className="text-amber-300 dark:text-purple-300">MICROTECHNIQUE IT</span>
+                  <span className="text-amber-300 dark:text-amber-300 dark:drop-shadow-[0_0_20px_rgba(245,158,11,0.4)]">MICROTECHNIQUE IT</span>
                 </h2>
                 <p className="text-slate-300 leading-relaxed mb-6">
                   MITCS is an IT services company building enterprise-grade products for the
@@ -441,7 +449,7 @@ export default function LandingPage() {
                   href="https://microtechniqueit.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-amber-300 dark:text-purple-300 hover:text-amber-200 dark:hover:text-purple-200 font-medium transition-colors"
+                  className="inline-flex items-center gap-2 text-amber-300 hover:text-amber-200 font-medium transition-colors"
                   data-testid="mitcs-website-link"
                 >
                   Visit microtechniqueit.com
@@ -450,7 +458,7 @@ export default function LandingPage() {
               </div>
 
               <div className="flex flex-col items-center justify-center" data-testid="mitcs-logo-block">
-                <div className="rounded-2xl bg-white/95 border border-white/10 p-8 backdrop-blur-sm shadow-xl">
+                <div className="rounded-2xl bg-white/95 border border-white/10 dark:border-amber-500/20 p-8 backdrop-blur-sm shadow-xl dark:shadow-[0_20px_60px_-15px_rgba(245,158,11,0.3)]">
                   <img
                     src="/mitcs-logo.png"
                     alt="MICROTECHNIQUE IT"
@@ -459,7 +467,7 @@ export default function LandingPage() {
                   />
                 </div>
                 <p className="mt-5 font-heading font-semibold text-lg tracking-wide text-purple-200">MICROTECHNIQUE IT</p>
-                <p className="text-purple-300/70 text-xs tracking-[0.3em] uppercase">MITCS</p>
+                <p className="text-amber-300/70 text-xs tracking-[0.3em] uppercase">MITCS</p>
               </div>
             </div>
           </div>
@@ -467,11 +475,13 @@ export default function LandingPage() {
       </section>
 
       {/* ============ CTA ============ */}
-      <section className="py-24 lg:py-32 bg-slate-50/60 dark:bg-slate-900/40 border-t border-slate-200/60 dark:border-slate-800/60">
-        <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center">
+      <section className="relative z-10 py-24 lg:py-32 bg-slate-50/60 dark:bg-[#0a0806]/60 dark:backdrop-blur-sm border-t border-slate-200/60 dark:border-amber-500/[0.08] overflow-hidden">
+        {/* dark-mode gold glow behind CTA */}
+        <div className="hidden dark:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full bg-amber-500/[0.08] blur-3xl pointer-events-none" />
+        <div className="relative max-w-4xl mx-auto px-6 lg:px-10 text-center">
           <h2 className="text-4xl lg:text-6xl font-heading font-semibold tracking-tight text-slate-900 dark:text-white leading-[1.05]">
             Ready to grow your{' '}
-            <span className="bg-gradient-to-r from-amber-500 to-amber-700 dark:from-amber-300 dark:to-amber-500 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-amber-500 to-amber-700 dark:from-amber-200 dark:via-amber-400 dark:to-yellow-600 bg-clip-text text-transparent dark:drop-shadow-[0_0_30px_rgba(245,158,11,0.4)]">
               real-estate business?
             </span>
           </h2>
@@ -482,7 +492,7 @@ export default function LandingPage() {
             <Button
               onClick={handleExplore}
               size="lg"
-              className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-slate-950 shadow-lg h-12 px-8 text-base"
+              className="bg-[hsl(214,52%,24%)] hover:bg-[hsl(214,52%,30%)] dark:bg-gradient-to-r dark:from-amber-400 dark:to-amber-600 dark:hover:from-amber-300 dark:hover:to-amber-500 text-white dark:text-black font-semibold shadow-lg dark:shadow-[0_0_40px_rgba(245,158,11,0.4)] h-12 px-8 text-base"
               data-testid="cta-explore-button"
             >
               Explore CRM
@@ -492,7 +502,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-12 px-8 text-base border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:bg-transparent w-full sm:w-auto"
+                className="h-12 px-8 text-base border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:bg-transparent dark:border-emerald-500/60 w-full sm:w-auto"
                 data-testid="cta-whatsapp-button"
               >
                 <WhatsAppIcon size={18} variant="brand" className="mr-2" />
@@ -504,14 +514,16 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FOOTER ============ */}
-      <footer className="bg-slate-900 dark:bg-black text-slate-400 py-12 border-t border-slate-800">
+      <footer className="relative z-10 bg-slate-900 dark:bg-black text-slate-400 py-12 border-t border-slate-800 dark:border-amber-500/20">
+        {/* Thin gold accent line above footer (dark mode only) */}
+        <div className="hidden dark:block absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-3">
               <LogoChip size="sm" />
             </div>
             <div className="text-center lg:text-right text-sm">
-              <p className="text-slate-300 font-medium" data-testid="footer-copy">
+              <p className="text-slate-300 dark:text-amber-100/90 font-medium" data-testid="footer-copy">
                 BuilderOne CRM © 2026
               </p>
               <p className="text-slate-500 text-xs mt-1">
