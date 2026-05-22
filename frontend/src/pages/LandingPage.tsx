@@ -138,17 +138,17 @@ export default function LandingPage() {
   const handleExplore = () => navigate(user ? '/dashboard' : '/login');
 
   return (
+    <div className={dark ? 'dark' : ''}>
     <div
-      className={`${dark ? 'dark' : ''} min-h-screen bg-white text-slate-900 dark:bg-[#080604] dark:text-slate-100 antialiased overflow-x-hidden transition-colors duration-300 relative`}
+      className={`min-h-screen bg-white text-slate-900 dark:bg-black dark:text-slate-100 antialiased overflow-x-hidden transition-colors duration-300 relative`}
       data-testid="landing-page"
       data-theme={dark ? 'dark' : 'light'}
     >
       {/* Premium dark-mode ambient gold glows (page-level, fixed) */}
       {dark && (
         <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
-          <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] rounded-full bg-amber-500/[0.07] blur-[140px]" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[900px] h-[900px] rounded-full bg-amber-400/[0.05] blur-[160px]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-yellow-500/[0.03] blur-[120px]" />
+          <div className="absolute top-[-20%] left-[-10%] w-[700px] h-[700px] rounded-full bg-amber-500/[0.05] blur-[160px]" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[800px] h-[800px] rounded-full bg-amber-400/[0.04] blur-[180px]" />
         </div>
       )}
       {/* ============ NAV ============ */}
@@ -313,7 +313,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FEATURES ============ */}
-      <section id="features" className="relative z-10 py-24 lg:py-32 bg-slate-50/60 dark:bg-[#0a0806]/60 dark:backdrop-blur-sm border-y border-slate-200/60 dark:border-amber-500/[0.08]">
+      <section id="features" className="relative z-10 py-24 lg:py-32 bg-slate-50/60 dark:bg-transparent border-y border-slate-200/60 dark:border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="max-w-2xl mb-16">
             <p className="text-xs font-bold tracking-[0.25em] text-amber-700 dark:text-amber-400 mb-3 uppercase">— Features</p>
@@ -332,7 +332,7 @@ export default function LandingPage() {
                 <div
                   key={f.title}
                   data-testid={`feature-card-${f.title.toLowerCase().replace(/\s+/g, '-')}`}
-                  className="group relative rounded-2xl border border-slate-200 dark:border-amber-500/[0.12] bg-white dark:bg-white/[0.02] dark:backdrop-blur-sm p-6 hover:border-[hsl(214,52%,24%)]/30 dark:hover:border-amber-400/50 hover:shadow-xl dark:hover:shadow-[0_8px_40px_-10px_rgba(245,158,11,0.25)] hover:-translate-y-1 transition-all duration-300"
+                  className="group relative rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0a0a0a] p-6 hover:border-[hsl(214,52%,24%)]/30 dark:hover:border-amber-400/40 hover:shadow-xl dark:hover:shadow-[0_8px_40px_-10px_rgba(245,158,11,0.25)] hover:-translate-y-1 transition-all duration-300"
                 >
                   <div className="h-11 w-11 rounded-xl bg-[hsl(214,52%,24%)]/5 dark:bg-gradient-to-br dark:from-amber-500/15 dark:to-amber-700/5 border border-[hsl(214,52%,24%)]/10 dark:border-amber-500/30 flex items-center justify-center mb-5 group-hover:bg-[hsl(214,52%,24%)] dark:group-hover:bg-gradient-to-br dark:group-hover:from-amber-400 dark:group-hover:to-amber-600 group-hover:border-[hsl(214,52%,24%)] dark:group-hover:border-amber-400 transition-all">
                     <Icon
@@ -393,7 +393,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ WHY BUILDERONE ============ */}
-      <section id="why" className="relative z-10 py-24 lg:py-32 bg-gradient-to-b from-slate-50 to-white dark:from-[#0a0806] dark:to-[#080604] border-y border-slate-200/60 dark:border-amber-500/[0.08]">
+      <section id="why" className="relative z-10 py-24 lg:py-32 bg-gradient-to-b from-slate-50 to-white dark:from-black dark:to-black border-y border-slate-200/60 dark:border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="max-w-2xl mb-16">
             <p className="text-xs font-bold tracking-[0.25em] text-amber-700 dark:text-amber-400 mb-3 uppercase">— Why BuilderOne</p>
@@ -410,7 +410,7 @@ export default function LandingPage() {
                 <div
                   key={r.title}
                   data-testid={`why-card-${i}`}
-                  className="relative overflow-hidden rounded-2xl bg-white dark:bg-white/[0.02] dark:backdrop-blur-sm border border-slate-200 dark:border-amber-500/[0.12] p-7 hover:shadow-2xl dark:hover:shadow-[0_8px_50px_-10px_rgba(245,158,11,0.3)] dark:hover:border-amber-400/40 hover:-translate-y-1 transition-all duration-300"
+                  className="relative overflow-hidden rounded-2xl bg-white dark:bg-[#0a0a0a] border border-slate-200 dark:border-white/[0.06] p-7 hover:shadow-2xl dark:hover:shadow-[0_8px_50px_-10px_rgba(245,158,11,0.3)] dark:hover:border-amber-400/30 hover:-translate-y-1 transition-all duration-300"
                 >
                   <div className={`absolute -top-12 -right-12 h-32 w-32 rounded-full bg-gradient-to-br ${r.accent} opacity-10 dark:opacity-30 blur-2xl`} />
                   <div className={`relative h-12 w-12 rounded-xl bg-gradient-to-br ${r.accent} flex items-center justify-center mb-5 shadow-md dark:shadow-lg dark:shadow-amber-500/10`}>
@@ -475,7 +475,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ CTA ============ */}
-      <section className="relative z-10 py-24 lg:py-32 bg-slate-50/60 dark:bg-[#0a0806]/60 dark:backdrop-blur-sm border-t border-slate-200/60 dark:border-amber-500/[0.08] overflow-hidden">
+      <section className="relative z-10 py-24 lg:py-32 bg-slate-50/60 dark:bg-transparent border-t border-slate-200/60 dark:border-white/[0.06] overflow-hidden">
         {/* dark-mode gold glow behind CTA */}
         <div className="hidden dark:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full bg-amber-500/[0.08] blur-3xl pointer-events-none" />
         <div className="relative max-w-4xl mx-auto px-6 lg:px-10 text-center">
@@ -514,7 +514,7 @@ export default function LandingPage() {
       </section>
 
       {/* ============ FOOTER ============ */}
-      <footer className="relative z-10 bg-slate-900 dark:bg-black text-slate-400 py-12 border-t border-slate-800 dark:border-amber-500/20">
+      <footer className="relative z-10 bg-slate-900 dark:bg-black text-slate-400 py-12 border-t border-slate-800 dark:border-white/[0.06]">
         {/* Thin gold accent line above footer (dark mode only) */}
         <div className="hidden dark:block absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
@@ -562,6 +562,7 @@ export default function LandingPage() {
           </div>
         </div>
       </a>
+    </div>
     </div>
   );
 }

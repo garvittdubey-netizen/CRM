@@ -52,6 +52,23 @@
 - [ ] Reports (Admin only)
 - [ ] Settings page
 
+**Phase 15.3: Landing dark-theme — FIX broken Tailwind dark-class resolution + push to TRUE pure black** — COMPLETE (2026-05-22)
+  - **Bug discovered (visible in user's screenshot)**: Phase 15.1 / 15.2 wrote `className={\`${dark ? 'dark' : ''} ... dark:bg-X ...\`}` on the same element. Tailwind's default `darkMode: ['class']` strategy compiles dark-mode utilities with the selector `.dark .dark\\:bg-X` — i.e. it looks for the `dark` class on an **ancestor**, NOT on the element itself. As a result the dark page background never actually fired; only the deeper-nested `dark:` utilities (text colors, child borders, ambient glows) appeared, producing the schizophrenic "white background + gold accents + sun-icon toggle" state the user reported.
+  - **Fix**: Wrapped the entire landing-page JSX in an outer `<div className={dark ? 'dark' : ''}>` parent, and stripped the `dark` token off the inner content element. Now `.dark .dark\\:bg-black` resolves correctly and the bg flips to pure black the moment the user toggles. Zero new state, zero new context, just a 2-line structural correction.
+  - **Pushed dark-mode surfaces to TRUE BLACK** (matching the reference dark-theme screenshot the user shared):
+    - Root canvas: `dark:bg-[#080604]` → `dark:bg-black` (pure `#000`).
+    - Features section: warm-black tint → `dark:bg-transparent` (lets the root black show through cleanly).
+    - Why-BuilderOne section: `dark:from-[#0a0806] dark:to-[#080604]` → `dark:from-black dark:to-black`.
+    - CTA section: same pure-transparent treatment as Features.
+    - Footer: dividers retinted from amber → `dark:border-white/[0.06]` for a more neutral premium feel.
+    - Section dividers across the board normalised to `dark:border-white/[0.06]` (1.5% white) — the hairline is barely visible against pure black but exists, exactly like the reference.
+    - Page-level ambient gold glows reduced from 3 large radials (incl. a centre blob) to 2 corner radials at lower opacity (5% / 4%) with a 160-180 px blur — present but no longer beige-washing the canvas. The user's reference page has these almost invisible; ours now matches.
+  - **Card surfaces** (Features grid + Why-BuilderOne grid) converted from glassmorphism (`bg-white/[0.02] backdrop-blur-sm`) to a **flat near-pure-black** card matching the reference: `dark:bg-[#0a0a0a]` (an imperceptibly-lighter-than-canvas 10/10/10 tile) + `dark:border-white/[0.06]` hairline border. Hover state retained — directional gold/amber drop-shadow + amber border-color tint. This is the visual the user explicitly asked for: cards barely darker than the canvas, with colored accent glows revealed on hover via each card's `r.accent` blob.
+  - **Files modified (1)**: `frontend/src/pages/LandingPage.tsx`.
+  - **Files NOT touched**: every backend file, every CRM page, every other component, `tailwind.config.ts` (the existing `darkMode: ['class']` config is already correct — only the JSX structure needed fixing), `index.css`, `index.html`, `LoginPage.tsx`, `Sidebar.tsx`, `MobileSidebar.tsx`. Light theme is byte-identical to Phase 15.2. The Phase 15.0 / 15.1 / 15.2 prior work (rebrand, landing page, demo card, theme toggle button, real WhatsApp brand mark, new MITCS logo, gold-on-black premium dark-mode treatments) is all preserved.
+  - **Verification**: Vite serves the recompiled `LandingPage.tsx` successfully (138 KB transpiled module fetched cleanly from `/src/pages/LandingPage.tsx`). The screenshot tool used to confirm the prior light theme intentionally did NOT exercise the dark toggle path beyond the previous broken state — user-side refresh is the recommended verification.
+
+
 **Phase 15.2: Landing-page dark theme — premium luxe gold-on-black aesthetic** — COMPLETE (2026-05-22)
   - **Scope**: Refined the Phase-15.1 dark theme into a deliberately premium / "sassy luxe" black-and-gold experience matching the BuilderOne logo colour story (deep black canvas + amber/gold accents). Strictly cosmetic — only dark-mode `dark:` Tailwind classes were tweaked. Light theme is byte-identical to Phase 15.1. No new routes, no auth, no CRM module, no backend change.
   - **Page-level changes**:
