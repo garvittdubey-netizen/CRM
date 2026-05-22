@@ -1,33 +1,27 @@
-# Test Credentials
+# BuilderOne CRM — Test Credentials
 
-## Super Admin (root — promoted from earliest user during Phase 14.0 migration)
-- Email: `admin@realestate.com`
-- Password: `Admin@2036`
-- Role: SUPER_ADMIN
+> **Important**: These credentials are inherited from the underlying CRM (Phase 14.0 seed). They were NOT modified by Phase 15.0. The Phase 15.0 work was purely cosmetic (rebrand + landing + demo card display).
 
-## Admin (mid-tier — can manage AGENT only)
-- Email: `manager@realestate.com`
-- Password: `Manager@2036`
-- Role: ADMIN
+## Real working accounts (seeded against managed Neon Postgres)
 
-## Agent
-- Email: `agent@realestate.com`
-- Password: `Agent@2036`
-- Role: AGENT
+| Role        | Email                       | Password      |
+|-------------|-----------------------------|---------------|
+| SUPER_ADMIN | admin@realestate.com        | Admin@2036    |
+| ADMIN       | manager@realestate.com      | Manager@2036  |
+| AGENT       | agent@realestate.com        | Agent@2036    |
 
-## Seeded Test Data (Neon DB)
-- One lead "Demo Lead" (phone +919999999999) assigned to Test Agent
-- One CALL communication (INTERESTED, 5m, sample note)
-- Activity log entry for the CALL_LOGGED action
+These accounts authenticate against `POST /api/auth/login` and grant access to the CRM (`/dashboard` and all role-gated routes).
 
-## WhatsApp Cloud API (Meta)
-- Phone Number ID: `1089815154218642`
-- Business Account ID: `1391674653005257`
-- Verify Token: `4a2b9f83c1e57d6a8b9c0e1f2a3b4c5d`
-- App Secret: configured server-side in `WHATSAPP_APP_SECRET`
-- ⚠️ Access token currently provided by user is EXPIRED (Meta error code 190, expired 2026-05-18). Real Meta API integration is in place — once a fresh token is provided the send/templates endpoints will work. Webhook GET verification and HMAC POST verification are independent of the access token and verified working.
+## Demo card on the Login page (NOT seeded)
 
-## URLs
-- Frontend: https://builderone-preview.preview.emergentagent.com
-- API base: same origin, all routes prefixed with `/api`
-- Webhook URL for Meta: `<base>/api/webhooks/whatsapp`
+The amber "Demo Credentials" card on `/login` displays:
+
+- Email: `demo@builderone.com`
+- Password: `demo@builderone.com`
+
+**This user does NOT exist in the database yet.** The user explicitly opted to "configure it later" (Phase 16) — the card is currently a display + copy-to-clipboard widget only. If a tester clicks "Use demo credentials" and submits the form, the backend will return `Invalid credentials`. To make it work end-to-end, seed the user in `backend/src/scripts/seed.ts` via an idempotent `prisma.user.upsert`.
+
+## Landing page
+- URL: `/` (public, no auth)
+- WhatsApp button: `https://wa.me/916355997080?text=Hey%2C%20I%20am%20interested%20in%20BuilderOne%20CRM`
+- "Explore" buttons: route authenticated users → `/dashboard`, unauthenticated → `/login`

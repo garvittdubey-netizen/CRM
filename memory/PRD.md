@@ -1,52 +1,73 @@
-# Real Estate CRM — PRD (Living Doc)
+# BuilderOne CRM — Product Requirements Document
 
-## Original Problem
-Build an enterprise Real Estate CRM (multi-phase). Latest phase: **Reports module (ADMIN-only) + lightweight Notifications**.
+## Original Problem Statement
+Continue from existing EMERGENT_STATE (Real Estate CRM) and execute a strict cosmetic rebrand to **BuilderOne CRM** (a product by MICROTECHNIQUE IT). The CRM itself must remain functionally and visually unchanged after login. Allowed scope is limited to (a) full rebrand to BuilderOne CRM, (b) addition of a public marketing landing page in front of the login flow, and (c) a non-functional demo-credentials card on the login page. Do NOT touch backend, Cloudinary, storage, or database logic — those will be handled in Phase-2 separately.
 
-## Architecture
-- Frontend: React 18 + Vite + TS + TailwindCSS + Shadcn UI (port 3000)
-- Backend: Node.js + Express + TS (port 8002) + Python FastAPI reverse proxy on 8001
-- ORM: Prisma v5
-- DB: Neon Postgres (ap-southeast-1) — single source of truth, persistent across sessions
-- Auth: JWT + bcryptjs
-- DnD: @dnd-kit
-- Image hosting: Cloudinary (cloud `dd61mc8me`)
+## Owner / Product
+MICROTECHNIQUE IT (MITCS) — https://microtechniqueit.com/
+
+## Architecture (unchanged from Phase 14.3)
+- **Frontend**: React 18 + Vite + TypeScript + TailwindCSS + Shadcn UI (port 3000)
+- **Backend**: Node.js + Express + TypeScript (port 8002) behind a FastAPI proxy on port 8001 (supervisor-managed)
+- **DB**: PostgreSQL (managed Neon, ap-southeast-1) via Prisma v5
+- **Auth**: JWT (jsonwebtoken) + bcryptjs, 3-tier RBAC (SUPER_ADMIN > ADMIN > AGENT)
+- **External integrations**: Meta WhatsApp Cloud API v22.0, Cloudinary
 
 ## User Personas
-- SUPER_ADMIN — owner tier. Full CRUD, user management (any role), reports, system settings; can promote ADMIN ↔ SUPER_ADMIN. Root user auto-promoted from earliest user via seed.
-- ADMIN — manager tier. Full operational CRUD, can manage AGENT-only users (cannot create/edit/promote ADMIN or SUPER_ADMIN), reports, reassign deals/leads/clients.
-- AGENT — scoped to own assigned leads/clients/deals; cannot reassign; no user-management access.
+1. **Marketing visitor / prospect** — lands on `/`, evaluates the product, contacts MITCS via WhatsApp.
+2. **Existing CRM user** (SUPER_ADMIN / ADMIN / AGENT) — logs in at `/login`, lands on `/dashboard`, uses the existing CRM unchanged.
 
-## Implemented Phases
-- 1.0–9.0 (Auth, Leads, Follow-ups, Communications + Meta WhatsApp, Analytics, CSV import/export, User mgmt, Pipeline, Mobile UX, Properties + Cloudinary, Clients)
-- 10.0 Deals Phase-1 — list, filters, CRUD (2026-05-20)
-- 10.0 Verification (iteration_15, 2026-05-20) — 100% pass
-- 10.1 Deals Phase-2 — Kanban board + Detail page + Activity timeline (2026-05-20). iteration_16.json — 37/37 backend + 100% frontend
-- **11.0 Reports (ADMIN) + lightweight Notifications (2026-05-20).** iteration_17.json — 36/36 backend + 100% frontend
-  - 5 report sections: Leads / Properties / Clients / Deals / Agents
-  - Charts (recharts) + tables, per-section CSV, window.print() for PDF
-  - Notifications: aggregated feed of follow-ups + deal activities + lead assignments, localStorage-based mark-as-read, polling every 60s, no new tables, no WebSocket
-  - Endpoints: `/api/reports/{leads,properties,clients,deals,agents}` + `/export`, `/api/notifications`
-- **14.0 SUPER_ADMIN role + 3-tier RBAC hierarchy (2026-05-21).** iteration_18.json — 25/26 backend (1 safely skipped)
-  - SUPER_ADMIN > ADMIN > AGENT hierarchy, enforced at middleware + service + UI.
-  - Earliest user auto-promoted to SUPER_ADMIN by seed (idempotent).
-  - New error codes: LAST_SUPER_ADMIN, FORBIDDEN_ROLE_ASSIGNMENT, FORBIDDEN_TARGET.
-  - Dynamic role dropdown + SUPER_ADMIN confirmation modals on promote/demote/create/disable.
+## Core Requirements (this phase)
+| # | Requirement | Status |
+|---|-------------|--------|
+| A1 | Full rebrand to "BuilderOne CRM" everywhere visible | DONE |
+| A2 | Replace logo across login, sidebar, mobile drawer, title, favicon, manifest, meta tags | DONE |
+| A3 | Remove black backgrounds from uploaded logos before use | DONE (Pillow thresholded alpha) |
+| A4 | Footer copy: `BuilderOne CRM © 2026 / A product by MICROTECHNIQUE IT` | DONE |
+| B1 | New public landing page at `/` (premium light SaaS, navy + gold) | DONE |
+| B2 | Hero: BuilderOne CRM + tagline + Explore + WhatsApp buttons + logo card | DONE |
+| B3 | Features grid (10 cards) | DONE |
+| B4 | Workflow timeline (7 steps) | DONE |
+| B5 | Why BuilderOne (5 reasons) | DONE |
+| B6 | About product with MITCS logo + microtechniqueit.com link | DONE |
+| B7 | CTA + Floating WhatsApp (wa.me/916355997080) | DONE |
+| C1 | Demo credentials card (display-only): demo@builderone.com / demo@builderone.com | DONE |
+| C2 | Copy-to-clipboard buttons for email and password | DONE |
+| C3 | "Use demo credentials" auto-fill shortcut | DONE |
+| C4 | Login form logic preserved | DONE |
+| Z1 | CRM after login unchanged (dashboard, sidebar nav, navbar, RBAC, workflows) | DONE |
 
-## Backlog
-- P1: Settings page
-- P2: Replace `window.alert` rollback notification with sonner/toast on Pipeline + Deal Board
-- P2: Wire stale Analytics 6-option dropdown (currently a single Export button) — or remove the dead route refs in dashboard
-- P3: Recharts width(-1) warning polish
-- P3: parseRange() return 400 on malformed dates instead of silent default
-- P3: Virtualize >500 leads/deals when scale grows
-- P3: ReportsPage uses Promise.all — switch to allSettled so a single endpoint failure doesn't nuke the page
+## What's been implemented (with dates)
+- **2026-05-22 — Phase 15.0** — BuilderOne rebrand + Landing page + Demo login card.
+- All prior phases (1.0 → 14.3) preserved verbatim.
 
-## Key Credentials
-See `/app/memory/test_credentials.md`.
+## Files Changed (this phase)
+**Added (3)**:
+- `frontend/src/pages/LandingPage.tsx`
+- `frontend/public/manifest.json`
+- `/etc/supervisor/conf.d/supervisord_node_backend.conf` (restored after container drift)
 
-## Notes
-- DATABASE_URL points to managed Neon — DO NOT switch to local Postgres.
-- Backend supervisor program lives at `/etc/supervisor/conf.d/supervisord_node_backend.conf`.
-- Hot reload enabled for both backend (tsx watch) and frontend (Vite).
-- Mark-as-read for notifications is FRONTEND-ONLY via localStorage key `notif:lastRead:{userId}`.
+**Modified (5)**:
+- `frontend/src/App.tsx` — added `/` landing route, fallback wildcard → `/`
+- `frontend/src/pages/LoginPage.tsx` — branding + demo credentials card
+- `frontend/src/components/layout/Sidebar.tsx` — logo swap to BuilderOne image
+- `frontend/src/components/layout/MobileSidebar.tsx` — same logo swap
+- `frontend/index.html` — title, description, OG/Twitter meta, favicon, manifest link, theme-color
+
+**Public assets added** (in `frontend/public/`):
+- `builderone-logo.png`, `builderone-logo-cropped.png`, `mitcs-logo.png`, `favicon.png`, `favicon.ico`
+
+## Prioritized Backlog (deferred — Phase 16+)
+- **P0** — Seed `demo@builderone.com` user so the demo card credentials actually log in (user explicitly opted to handle separately).
+- **P1** — Cloudinary / CDN upload of BuilderOne + MITCS logos (currently served from `/public`).
+- **P1** — Replace login right-pane Unsplash image with a BuilderOne-brand photograph.
+- **P2** — `/about-mitcs` and `/legal/privacy` pages deep-linked from landing footer.
+- **P2** — Sticky-nav active-section indicator on landing page.
+
+## Next Tasks
+1. Seed the demo user in `backend/src/scripts/seed.ts` (when user is ready) — idempotent `prisma.user.upsert`.
+2. Convert the floating WhatsApp number to an env var (`VITE_WHATSAPP_NUMBER`).
+3. Phase 16+ — Cloudinary / storage work as previously deferred in Phase 15.0 scope.
+
+## Engagement Enhancement Suggestion
+**Why not add a "Book a 10-min walkthrough" Cal.com / Google Calendar embed on the landing CTA?** A one-tap booking flow next to the WhatsApp button would convert curious prospects into qualified demos without forcing them to start a WhatsApp conversation — directly boosting MITCS's pipeline visibility and conversion rate.

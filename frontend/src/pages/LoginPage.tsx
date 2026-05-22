@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Building2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Eye, EyeOff, AlertCircle, Copy, Check, ArrowLeft, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+const DEMO_EMAIL = 'demo@builderone.com';
+const DEMO_PASSWORD = 'demo@builderone.com';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -12,6 +15,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copiedField, setCopiedField] = useState<'email' | 'password' | null>(null);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -34,18 +38,40 @@ export default function LoginPage() {
     }
   };
 
+  const copyToClipboard = (text: string, field: 'email' | 'password') => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1500);
+    });
+  };
+
+  const fillDemo = () => {
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+  };
+
   return (
     <div className="flex min-h-screen" data-testid="login-page">
       {/* Left: Login Form */}
-      <div className="flex flex-1 flex-col justify-center px-8 py-12 lg:px-16 bg-background">
+      <div className="flex flex-1 flex-col justify-center px-8 py-12 lg:px-16 bg-background relative">
+        {/* Back to landing */}
+        <Link
+          to="/"
+          className="absolute top-6 left-6 lg:left-16 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="back-to-landing"
+        >
+          <ArrowLeft size={14} />
+          Back to home
+        </Link>
+
         {/* Logo */}
-        <div className="flex items-center gap-2.5 mb-12" data-testid="login-logo">
-          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-            <Building2 className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-2xl font-heading font-semibold text-primary tracking-tight">
-            EstateOS
-          </span>
+        <div className="flex items-center mb-10" data-testid="login-logo">
+          <img
+            src="/builderone-logo-cropped.png"
+            alt="BuilderOne CRM"
+            className="h-12 w-auto"
+            draggable={false}
+          />
         </div>
 
         <div className="w-full max-w-sm mx-auto">
@@ -53,7 +79,70 @@ export default function LoginPage() {
             <h1 className="text-3xl font-heading font-semibold tracking-tight mb-2">
               Welcome back
             </h1>
-            <p className="text-muted-foreground">Sign in to your CRM workspace</p>
+            <p className="text-muted-foreground">Sign in to your BuilderOne CRM workspace</p>
+          </div>
+
+          {/* Demo Credentials Card */}
+          <div
+            data-testid="demo-credentials-card"
+            className="mb-6 rounded-lg border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50/50 p-4 shadow-sm"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-7 w-7 rounded-md bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-sm">
+                <Sparkles size={14} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-heading font-semibold text-slate-900">Demo Credentials</p>
+                <p className="text-xs text-amber-800/80">Try BuilderOne CRM instantly</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 bg-white/70 rounded-md px-3 py-2 border border-amber-100">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold tracking-wider text-amber-700 uppercase">Email</p>
+                  <p className="text-sm font-mono text-slate-900 truncate" data-testid="demo-email">
+                    {DEMO_EMAIL}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(DEMO_EMAIL, 'email')}
+                  className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-amber-100 text-amber-700 transition-colors shrink-0"
+                  data-testid="copy-demo-email"
+                  aria-label="Copy email"
+                >
+                  {copiedField === 'email' ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 bg-white/70 rounded-md px-3 py-2 border border-amber-100">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold tracking-wider text-amber-700 uppercase">Password</p>
+                  <p className="text-sm font-mono text-slate-900 truncate" data-testid="demo-password">
+                    {DEMO_PASSWORD}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(DEMO_PASSWORD, 'password')}
+                  className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-amber-100 text-amber-700 transition-colors shrink-0"
+                  data-testid="copy-demo-password"
+                  aria-label="Copy password"
+                >
+                  {copiedField === 'password' ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={fillDemo}
+              className="mt-3 w-full text-xs font-medium text-amber-800 hover:text-amber-900 transition-colors py-1.5 px-2 rounded-md hover:bg-amber-100/60"
+              data-testid="use-demo-credentials"
+            >
+              Use demo credentials →
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5" data-testid="login-form">
@@ -73,7 +162,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@realestate.com"
+                placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -125,9 +214,10 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-8 text-center text-xs text-muted-foreground">
-            Real Estate CRM &copy; {new Date().getFullYear()}
-          </p>
+          <div className="mt-8 text-center text-xs text-muted-foreground space-y-1" data-testid="login-footer">
+            <p className="font-medium">BuilderOne CRM &copy; 2026</p>
+            <p>A product by MICROTECHNIQUE IT</p>
+          </div>
         </div>
       </div>
 
@@ -141,10 +231,10 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-navy-500/80 flex flex-col justify-end p-12">
           <div className="max-w-sm">
             <p className="text-2xl font-heading font-medium text-white leading-relaxed mb-4">
-              "Streamline your real estate operations with a platform built for professionals."
+              "Smart CRM for builders &amp; real estate teams — built to close faster."
             </p>
-            <p className="text-white/60 text-sm font-medium tracking-wide uppercase">
-              EstateOS CRM — Built for scale
+            <p className="text-amber-300/90 text-sm font-medium tracking-wide uppercase">
+              BuilderOne CRM — Build. Manage. Grow.
             </p>
           </div>
         </div>

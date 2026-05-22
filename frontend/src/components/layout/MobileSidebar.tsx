@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Building2, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -47,8 +47,13 @@ export default function MobileSidebar({ open, onOpenChange }: Props) {
       >
         <SheetHeader className="border-b">
           <div className="flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-primary shrink-0" />
-            <SheetTitle className="text-lg text-primary">EstateOS</SheetTitle>
+            <img
+              src="/builderone-logo-cropped.png"
+              alt="BuilderOne CRM"
+              className="h-8 w-auto object-contain"
+              draggable={false}
+            />
+            <SheetTitle className="sr-only">BuilderOne CRM</SheetTitle>
           </div>
           <SheetDescription>Navigate the CRM</SheetDescription>
         </SheetHeader>

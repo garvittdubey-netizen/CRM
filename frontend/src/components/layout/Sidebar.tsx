@@ -1,5 +1,5 @@
 import { NavLink, useMatch, useNavigate, useResolvedPath } from 'react-router-dom';
-import { Building2, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -57,13 +57,21 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )}
         >
           {collapsed ? (
-            <Building2 className="h-6 w-6 text-primary shrink-0" data-testid="sidebar-logo-collapsed" />
+            <img
+              src="/favicon.png"
+              alt="BuilderOne"
+              className="h-7 w-7 shrink-0 object-contain"
+              data-testid="sidebar-logo-collapsed"
+              draggable={false}
+            />
           ) : (
-            <div className="flex items-center gap-2 overflow-hidden" data-testid="sidebar-logo">
-              <Building2 className="h-6 w-6 text-primary shrink-0" />
-              <span className="font-heading font-semibold text-lg text-primary truncate">
-                EstateOS
-              </span>
+            <div className="flex items-center overflow-hidden" data-testid="sidebar-logo">
+              <img
+                src="/builderone-logo-cropped.png"
+                alt="BuilderOne CRM"
+                className="h-8 w-auto object-contain dark:invert-0"
+                draggable={false}
+              />
             </div>
           )}
           {!collapsed && (
